@@ -41,7 +41,7 @@ try:
 except Exception:
     pass
 
-from fastapi import FastAPI, Request, HTTPException as FastAPIHTTPException
+from fastapi import FastAPI, Request, HTTPException as FastAPIHTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -193,6 +193,39 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": f"An unexpected server error occurred: {str(exc)}", "type": "GlobalException"}
     )
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str, sender: WebSocket):
+        for connection in self.active_connections:
+            if connection != sender:
+                try:
+                    await connection.send_text(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/stream")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(data, sender=websocket)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
 
 @app.get("/health", tags=["health"])
 def health_check():

@@ -1,5 +1,6 @@
 import { modelContainer, onWindowResize } from './scene-setup.js';
 import { loadModel } from './model-loader.js';
+import { broadcastState } from './ws-client.js';
 
 // DOM Elements
 export const uploadContainer = document.getElementById('upload-container');
@@ -17,6 +18,8 @@ const valWaist = document.getElementById('val-waist');
 const valHip = document.getElementById('val-hip');
 
 export let currentModel = null;
+export let currentModelUrl = null;
+export let currentModelMeasurements = null;
 
 // Helper to update status indicators
 export function updateStatus(text, stateClass) {
@@ -26,6 +29,9 @@ export function updateStatus(text, stateClass) {
 
 // Clean up existing model
 export function removeCurrentModel() {
+    broadcastState({ type: 'unload' });
+    currentModelUrl = null;
+    currentModelMeasurements = null;
     if (currentModel) {
         modelContainer.remove(currentModel);
         currentModel.traverse((child) => {
@@ -128,7 +134,15 @@ export function handleModelFile(file) {
                     modelContainer,
                     (model) => {
                         currentModel = model;
+                        currentModelUrl = absoluteMeshUrl;
+                        currentModelMeasurements = measurements;
                         updateStatus("Model Rendered (1.8m Aligned)", "active");
+                        
+                        broadcastState({
+                            type: 'load',
+                            url: absoluteMeshUrl,
+                            measurements: measurements
+                        });
                         
                         // Show measurements HUD
                         showMeasurementsPanel(measurements);
@@ -195,6 +209,17 @@ export function handleModelFile(file) {
                     waistCm: 80.0,
                     hipCm: 95.0
                 };
+
+                const absoluteDemoUrl = new URL(sampleUrl, window.location.href).href;
+                currentModelUrl = absoluteDemoUrl;
+                currentModelMeasurements = mockMeasurements;
+                
+                broadcastState({
+                    type: 'load',
+                    url: absoluteDemoUrl,
+                    measurements: mockMeasurements
+                });
+                
                 showMeasurementsPanel(mockMeasurements);
 
                 modelInfoText.innerHTML = `
@@ -246,6 +271,17 @@ export function handleSampleModel() {
                 waistCm: 80.0,
                 hipCm: 95.0
             };
+
+            const absoluteDemoUrl = new URL(sampleUrl, window.location.href).href;
+            currentModelUrl = absoluteDemoUrl;
+            currentModelMeasurements = mockMeasurements;
+            
+            broadcastState({
+                type: 'load',
+                url: absoluteDemoUrl,
+                measurements: mockMeasurements
+            });
+            
             showMeasurementsPanel(mockMeasurements);
 
             modelInfoText.innerHTML = `

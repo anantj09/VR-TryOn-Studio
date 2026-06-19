@@ -9,11 +9,12 @@ An immersive, hardware-accelerated WebXR browser application integrated with a P
 ```mermaid
 graph TD
     %% Frontend Interaction
-    subgraph Frontend [Client Browser - Three.js & WebGL]
+    subgraph Frontend [Mobile Client - Three.js & WebXR]
         UI[HTML/CSS HUD Dashboard] -- 1. Upload Photo / Trigger Demo --> Upload[XMLHttpRequest Upload Engine]
-        Canvas[WebGL Canvas] -- 5. Render 3D Scene / OrbitControls --> Viewport[Screen Viewport]
+        Canvas[WebGL Canvas] -- 5. Render 3D Scene --> Viewport[Screen Viewport]
         XR[WebXR Device API] -- 6. Split Stereo Projections --> VR[VR Headset / Mobile Cardboard]
         Gamepad[Gamepad API] -- 7. Bluetooth Controls --> Canvas
+        Broadcaster[Broadcaster Client] -- 8. Stream 3D State/Camera --> WS_Conn[WebSocket Connection]
     end
 
     %% Backend Processing
@@ -24,17 +25,26 @@ graph TD
         MeshGen -- a. Predicts SMPL Parameters --> SMPL[SMPL Neutral Template .pkl]
         MeshGen -- b. Computes Vertex Distances --> Measurements[AI Body Sizing Measurements]
         MeshGen -- c. Formats Triangles --> GLTF[GLTF Mesh File Exporter]
+        WSRelay[WebSocket /ws/stream Relay]
+    end
+
+    %% Spectator Console
+    subgraph Spectator [Laptop Spectator Screen]
+        SpecCanvas[WebGL Canvas] -- Renders 3D Model --> SpecViewport[Single Screen Viewport]
+        SpecReceiver[Spectator Client] -- Apply Transformations/Camera --> SpecCanvas
     end
 
     %% Communications
     Upload -- HTTP POST --> API
     GLTF -- HTTP GET Mesh URL --> Upload
     Measurements -- JSON Response --> UI
+    WS_Conn -- Stream coordinates/actions --> WSRelay
+    WSRelay -- Broadcast to Spectators --> SpecReceiver
 ```
 
 ### Frontend Technology Stack (Three.js, WebGL & WebXR)
 * **WebGL:** Communicates directly with the GPU using compiled shaders to draw human meshes consisting of thousands of triangles at high framerates.
-* **Three.js:** Exposes clean object-oriented APIs to manage the scene graph, lighting nodes (Ambient fill, Hemisphere sky bounce, Directional key, and Neon پوائنٹ spotlights), dynamic shadow maps, and material calibrations.
+* **Three.js:** Exposes clean object-oriented APIs to manage the scene graph, lighting nodes (Ambient fill, Hemisphere sky bounce, Directional key, and Neon spotlights), dynamic shadow maps, and material calibrations.
 * **WebXR Device API:** Negotiates high-refresh-rate stereoscopic viewpoints, manages inter-pupillary distance (IPD) offsets inside VR headsets, and polls gamepad controller triggers.
 
 ### Backend Technology Stack (4D-Humans & SMPL)
@@ -42,6 +52,10 @@ graph TD
 * **Feature Extraction:** Feeds the cropped human bounding box through a **ViT-Det (Vision Transformer)** backbone to extract detailed pose and body shape representations.
 * **SMPL Body Template:** Predicts 10 shape parameters ($\beta$ PCA coefficients) and 72 pose parameters ($\theta$ joint rotations), deforming the 6,890 template vertices of [basicModel_neutral_lbs_10_207_0_v1.0.0.pkl](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/Backend/data/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl) to generate a customized mesh.
 * **AI Sizing Calculations:** Computes Euclidean distances between specific indices of the deforming body vertices to estimate Height, Chest, Waist, and Hip circumferences in centimeters.
+
+### WebSocket State Synchronization Relay
+* **State Broadcasting:** Mobile client polls and streams model URLs, transformation changes, and camera coordinates at 30 FPS over WebSockets to a FastAPI relay endpoint.
+* **Spectator Mirroring:** The spectator page receives the stream, normalizes mesh URLs to prevent CORS conflicts, and applies coordinates directly onto a flat-screen camera to sync the viewport.
 
 ---
 
@@ -54,8 +68,11 @@ internship_week3/
 │   ├── data/demo/                # Offline fallback meshes
 │   │   └── 9dc6216c..._mesh.gltf # Local mannequin fallback model
 │   ├── index.html                # HTML DOM structure and Importmaps
+│   ├── spectator.html            # Desktop Spectator single-view layout
 │   ├── styles.css                # Cyberpunk overlays and mobile layouts
 │   ├── viewer.js                 # App Entry Point & Animation loop
+│   ├── spectator.js              # Spectator controller and render loop
+│   ├── ws-client.js              # WebSocket client interface
 │   ├── scene-setup.js            # Three.js core setups (lights, cameras, renderer)
 │   ├── xr-manager.js             # WebXR session triggers and mobile resets
 │   ├── ui-handlers.js            # Event listeners and XHR upload progress engine
@@ -146,3 +163,14 @@ When wearing a VR headset, you can control the digital twin using your controlle
 * **Button A (Index 0):** Resets the twin's rotation and scale back to baseline.
 * **Button B (Index 1):** Terminates the immersive session programmatically to return to flat mode.
 * **Button X (Index 2):** Toggles the visibility of the on-screen controls panel.
+
+---
+
+## 7. Real-Time Spectator Mirroring Console
+
+To show a live feed of your VR/flat session on your laptop:
+
+1. Open **`http://localhost:8080/spectator.html`** in your laptop's web browser.
+2. Open **`http://<laptop_ip>:8080`** (or `http://localhost:8080` via USB) on your mobile device.
+3. Once the mobile viewer loads/unloads models, rotates the mannequin, or moves the camera in immersive VR mode, the spectator console mirrors the exact viewpoint, scale, rotation, and AI measurements in real-time.
+4. **Orbit Control Override:** The spectator page turns off manual camera orbit controls while active VR/phone camera stream coordinates are being synced. Manual camera controls on the spectator page automatically re-enable if streaming packets stop for more than 3 seconds.

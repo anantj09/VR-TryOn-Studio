@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <title>4DHumans Spectator - Real-time Twin Mirror</title>
+  <meta name="description" content="Real-time spectator screen for monitoring immersive VR human twin try-on sessions.">
+  
+  <!-- Importmap to resolve bare module specifiers for Three.js and its addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      }
+    }
+  </script>
+  
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .stream-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--accent-color);
+      border-radius: 4px;
+      background: rgba(123, 97, 255, 0.15);
+      color: var(--text-color);
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+    
+    .stream-badge.active {
+      border-color: #00ff66;
+      background: rgba(0, 255, 102, 0.15);
+      color: #00ff66;
+      box-shadow: 0 0 10px rgba(0, 255, 102, 0.3);
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { opacity: 0.8; }
+    }
+
+    /* Override instructions panel for spectator info */
+    .info-panel {
+      width: 320px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .info-panel h4 {
+      font-family: var(--font-title);
+      font-size: 15px;
+      margin-bottom: 12px;
+      color: var(--accent-color);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+    .info-panel ul {
+      list-style: none;
+    }
+    .info-panel li {
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .info-panel li span:first-child {
+      color: var(--text-muted);
+    }
+    .info-panel li span:last-child {
+      font-weight: bold;
+      color: var(--text-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Three.js Canvas Container -->
+  <main id="canvas-container" aria-label="Spectator Viewport"></main>
+
+  <!-- Floating HUD Panel Overlay -->
+  <div class="hud-overlay">
+    
+    <!-- Top Header Bar -->
+    <header class="interactive">
+      <div class="logo">
+        <h1>4D-HUMANS SPECTATOR</h1>
+        <span>Desktop Viewer (Single Screen Mirror)</span>
+      </div>
+      <div class="vr-controls">
+        <div id="stream-status" class="stream-badge">OFFLINE</div>
+      </div>
+    </header>
+
+    <!-- Bottom HUD Info Bar -->
+    <div class="controls-bottom">
+      
+      <!-- Session Details Panel -->
+      <section class="panel info-panel interactive">
+        <h4>Session Info</h4>
+        <ul>
+          <li>
+            <span>Active Streamer</span>
+            <span id="info-streamer">None</span>
+          </li>
+          <li>
+            <span>Active Model</span>
+            <span id="info-model">None</span>
+          </li>
+          <li>
+            <span>Connection Mode</span>
+            <span id="info-mode">WebSocket</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Synced Measurements Panel -->
+      <section id="measurements-panel" class="panel measurements-panel interactive" style="display: none;">
+        <h4>AI Sizing Measurements (Synced)</h4>
+        <div class="measurements-grid">
+          <div class="measurement-item">
+            <span class="value" id="val-height">—</span>
+            <span class="label">Height</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-chest">—</span>
+            <span class="label">Chest</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-waist">—</span>
+            <span class="label">Waist</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-hip">—</span>
+            <span class="label">Hip</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Status Panel -->
+      <section class="panel status-panel interactive" aria-labelledby="status-title">
+        <h4 id="status-title" style="display:none">System Status</h4>
+        <div class="status-indicator">
+          <span id="status-text">Disconnected</span>
+          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        </div>
+        <div id="model-info-text" class="model-info">No active stream</div>
+      </section>
+
+    </div>
+
+  </div>
+
+  <!-- Spectator Script Entrypoint -->
+  <script type="module" src="spectator.js"></script>
+
+</body>
+</html>
