@@ -1,5 +1,6 @@
-import { renderer, camera, controls, onWindowResize } from './scene-setup.js';
+import { renderer, camera, cameraRig, controls, onWindowResize } from './scene-setup.js';
 import { updateStatus } from './ui-handlers.js';
+import { startWIPLocomotion, stopWIPLocomotion } from './wip-locomotion.js';
 
 export const vrButton = document.getElementById('enter-vr-btn');
 
@@ -32,11 +33,18 @@ export function onEnterVR() {
     navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
         renderer.xr.setSession(session);
         
+        // Start Walking-in-Place locomotion detection
+        startWIPLocomotion(cameraRig, camera);
+        
         // Disable OrbitControls in VR session to prevent conflicts
         controls.enabled = false;
         updateStatus("Active Immersive VR Session", "active");
 
         session.addEventListener('end', () => {
+            // Stop Walking-in-Place locomotion detection
+            stopWIPLocomotion();
+            cameraRig.position.set(0, 0, 0);
+
             // Re-enable controls when exiting VR
             controls.enabled = true;
             

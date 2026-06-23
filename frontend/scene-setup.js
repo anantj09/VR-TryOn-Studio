@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-export let scene, camera, renderer, controls, modelContainer;
+export let scene, camera, cameraRig, renderer, controls, modelContainer;
 
 export function initScene(canvasContainer) {
     // 1. Create Scene
@@ -13,6 +13,11 @@ export function initScene(canvasContainer) {
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     // Start camera at standard standing eye height (1.6m) looking towards model position (0, 0.9, -1.5)
     camera.position.set(0, 1.6, 1.0);
+
+    // Create Camera Rig to group the camera for walking locomotion offsets
+    cameraRig = new THREE.Group();
+    cameraRig.add(camera);
+    scene.add(cameraRig);
 
     // 3. Create WebGLRenderer with WebXR & Shadows enabled
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
