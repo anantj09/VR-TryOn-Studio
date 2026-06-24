@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, Header
 from schemas.tryon import MeasurementsSchema
 from core.config import settings
 from services.pose_service import pose_service
@@ -24,7 +24,8 @@ class MeshResponse(BaseModel):
 @router.post("/generate-mesh", response_model=MeshResponse)
 async def generate_user_mesh(
     photo: UploadFile = File(..., description="The user portrait to reconstruct 3D body from"),
-    user_id: Optional[str] = Form(None, description="Optional user ID for profiling")
+    user_id: Optional[str] = Form(None, description="Optional user ID for profiling"),
+    x_colab_tunnel_url: Optional[str] = Header(None, alias="X-Colab-Tunnel-URL")
 ):
     # 1. Validate MIME type
     if photo.content_type not in SUPPORTED_MIME_TYPES:
@@ -113,38 +114,70 @@ async def generate_user_mesh(
             "heightCm": round(height_est_cm, 1)
         }
         
-        # 6. Generate GLTF 3D human mannequin
+        # 6. Generate 3D human mannequin / digital twin
         current_dir = os.path.dirname(os.path.abspath(__file__))
         static_meshes_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "meshes"))
         os.makedirs(static_meshes_dir, exist_ok=True)
         
-        mesh_filename = f"{job_id}_mesh.gltf"
-        mesh_filepath = os.path.join(static_meshes_dir, mesh_filename)
+        success = False
         
-        # Generate SAM mask for transparent subject cropping
-        mask_filename = segmentation_service.generate_mask(person_img_path, landmarks)
-        mask_path = os.path.join(settings.temp_dir_path, mask_filename)
+        if x_colab_tunnel_url:
+            # Route visual generation to Colab via Ngrok tunnel
+            import httpx
+            colab_endpoint = f"{x_colab_tunnel_url.rstrip('/')}/api/v1/colab/generate"
+            print(f"Forwarding visual 3D generation request to Colab: {colab_endpoint}")
+            
+            mesh_filename = f"{job_id}_mesh.glb"
+            mesh_filepath = os.path.join(static_meshes_dir, mesh_filename)
+            
+            try:
+                # 90-second timeout to allow TRELLIS time to perform diffusion and GLB assembly
+                async with httpx.AsyncClient(timeout=90.0) as client:
+                    with open(person_img_path, "rb") as f_img:
+                        files = {"photo": (os.path.basename(person_img_path), f_img, photo.content_type)}
+                        response = await client.post(colab_endpoint, files=files)
+                        
+                if response.status_code == 200:
+                    with open(mesh_filepath, "wb") as f_out:
+                        f_out.write(response.content)
+                    success = True
+                    print(f"Colab visual 3D generation succeeded. Saved as: {mesh_filename}")
+                else:
+                    print(f"[WARNING] Colab generation failed with status {response.status_code}: {response.text}")
+                    x_colab_tunnel_url = None # Trigger local fallback
+            except Exception as e:
+                print(f"[WARNING] Colab connection error: {str(e)}. Falling back to local mannequin.")
+                x_colab_tunnel_url = None # Trigger local fallback
+                
+        if not x_colab_tunnel_url:
+            # Local 4D-Humans Mannequin Generator (Fallback)
+            mesh_filename = f"{job_id}_mesh.gltf"
+            mesh_filepath = os.path.join(static_meshes_dir, mesh_filename)
+            
+            # Generate SAM mask for transparent subject cropping
+            mask_filename = segmentation_service.generate_mask(person_img_path, landmarks)
+            mask_path = os.path.join(settings.temp_dir_path, mask_filename)
 
-        success = mesh_service.generate_proportional_mannequin(
-            chest_cm=chest_est_cm,
-            waist_cm=waist_est_cm,
-            hip_cm=hip_est_cm,
-            height_cm=height_est_cm,
-            output_path=mesh_filepath,
-            person_img_path=person_img_path,
-            mask_path=mask_path,
-            landmarks=landmarks
-        )
-        
-        # Cleanup temporary mask file
-        try:
-            if os.path.exists(mask_path):
-                os.remove(mask_path)
-        except Exception:
-            pass
-        
+            success = mesh_service.generate_proportional_mannequin(
+                chest_cm=chest_est_cm,
+                waist_cm=waist_est_cm,
+                hip_cm=hip_est_cm,
+                height_cm=height_est_cm,
+                output_path=mesh_filepath,
+                person_img_path=person_img_path,
+                mask_path=mask_path,
+                landmarks=landmarks
+            )
+            
+            # Cleanup temporary mask file
+            try:
+                if os.path.exists(mask_path):
+                    os.remove(mask_path)
+            except Exception:
+                pass
+                
         if not success:
-            raise Exception("MeshService failed to write GLTF output.")
+            raise Exception("3D twin mesh generation failed in both Colab and local fallback paths.")
             
         # Cache profile details
         target_user_id = user_id or "guest_user"

@@ -48,12 +48,30 @@
         <h1>4D-HUMANS VR</h1>
         <span>Immersive Mesh Inspector</span>
       </div>
-      <div class="vr-controls">
+      <div class="vr-controls" style="display: flex; gap: 8px; align-items: center;">
+        <button id="settings-btn" class="btn btn-secondary" style="padding: 10px 14px; border-radius: 50%; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;" aria-label="Configure Colab Server">
+          <span style="font-size: 18px; line-height: 1;">⚙️</span>
+        </button>
         <button id="enter-vr-btn" class="btn btn-secondary" disabled>
           <span class="vr-icon">🕶️</span> ENTER VR
         </button>
       </div>
     </header>
+
+    <!-- Settings Panel (Floating/Collapsible) -->
+    <section id="settings-panel" class="panel interactive" style="display: none; position: fixed; bottom: 120px; left: 20px; width: 340px; z-index: 100;">
+      <h4 style="font-family: var(--font-title); font-size: 15px; margin-bottom: 12px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
+        <span>Server Settings</span>
+        <span id="settings-close-btn" style="cursor: pointer; font-size: 14px; color: var(--text-muted); font-weight: normal; padding: 4px;">✕</span>
+      </h4>
+      <div>
+        <label for="colab-url-input" style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Google Colab Tunnel URL</label>
+        <input type="url" id="colab-url-input" placeholder="https://xxxx.ngrok-free.app" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; outline: none;">
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.4; margin-bottom: 0;">
+          Paste your public Ngrok URL from Google Colab. If active, high-fidelity visual generation runs on TRELLIS (Colab GPU) while body sizing runs locally.
+        </p>
+      </div>
+    </section>
 
     <!-- Bottom HUD Info Bar -->
     <div class="controls-bottom">

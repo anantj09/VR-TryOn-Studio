@@ -129,6 +129,15 @@ WebXR session setups are implemented inside [viewer.js](file:///c:/Coding_files/
    npx serve -l 8080
    ```
 
+### C. Google Colab 3D Generation Setup (Optional - for high-fidelity meshes)
+1. Open [colab_runner.ipynb](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/colab_runner.ipynb) in Google Colab.
+2. Retrieve your **Ngrok Authtoken** from the [Ngrok Dashboard](https://dashboard.ngrok.com/).
+3. Paste the authtoken into the second code cell of the notebook.
+4. Run all cells in Colab. Once the server starts and the tunnel is online, copy the generated HTTPS ngrok URL (e.g. `https://xxxx.ngrok-free.app`).
+5. Open the web interface at `http://localhost:8080` (or `http://localhost:8080` via Chrome Port Forwarding on mobile).
+6. Click the **Settings Cog (⚙️)** in the top header and paste the ngrok URL.
+7. Any subsequent image uploads will now route the visual 3D generation to the high-performance TRELLIS model in Colab, while the body sizing is executed locally on the backend. If the tunnel goes offline, the system automatically falls back to local procedural mannequin generation.
+
 ---
 
 ## 5. Mobile & Headset Connectivity Configurations

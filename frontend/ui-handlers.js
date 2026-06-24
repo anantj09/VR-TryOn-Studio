@@ -108,6 +108,13 @@ export function handleModelFile(file) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', backendUrl);
 
+    // Send the Colab tunnel URL if configured
+    const colabUrl = localStorage.getItem('colab_tunnel_url') || '';
+    if (colabUrl) {
+        xhr.setRequestHeader('X-Colab-Tunnel-URL', colabUrl);
+        console.log(`Routing visual 3D generation to Colab via tunnel: ${colabUrl}`);
+    }
+
     // Track upload progress
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
@@ -408,4 +415,46 @@ export function setupUI() {
             }
         });
     }
+
+    // Settings Panel Controls
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsPanel = document.getElementById('settings-panel');
+    const settingsCloseBtn = document.getElementById('settings-close-btn');
+    const colabUrlInput = document.getElementById('colab-url-input');
+
+    if (settingsBtn && settingsPanel) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = settingsPanel.style.display === 'none';
+            settingsPanel.style.display = isHidden ? 'block' : 'none';
+        });
+    }
+
+    if (settingsCloseBtn && settingsPanel) {
+        settingsCloseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsPanel.style.display = 'none';
+        });
+    }
+
+    if (colabUrlInput) {
+        // Load cached URL on startup
+        const cachedUrl = localStorage.getItem('colab_tunnel_url');
+        if (cachedUrl) {
+            colabUrlInput.value = cachedUrl;
+        }
+
+        colabUrlInput.addEventListener('input', () => {
+            localStorage.setItem('colab_tunnel_url', colabUrlInput.value.trim());
+        });
+    }
+
+    // Close settings panel when clicking outside of it
+    document.addEventListener('click', (e) => {
+        if (settingsPanel && settingsPanel.style.display === 'block') {
+            if (!settingsPanel.contains(e.target) && e.target !== settingsBtn && !settingsBtn.contains(e.target)) {
+                settingsPanel.style.display = 'none';
+            }
+        }
+    });
 }
