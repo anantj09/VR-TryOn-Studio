@@ -382,3 +382,57 @@ async def generate_digital_twin(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"3D mesh reconstruction pipeline failure: {str(e)}"
         )
+
+
+@router.get("/premade/list")
+async def list_premade_assets():
+    """
+    Scans the data/premade/ directory for GLTF/GLB models.
+    Merges custom display names and categories if defined in premade_mapping.json.
+    """
+    import os
+    import json
+    
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    premade_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "premade"))
+    
+    if not os.path.exists(premade_dir):
+        return []
+        
+    # Check for mapping overrides file
+    mapping_path = os.path.join(premade_dir, "premade_mapping.json")
+    mapping = {}
+    if os.path.exists(mapping_path):
+        try:
+            with open(mapping_path, "r", encoding="utf-8") as f:
+                mapping = json.load(f)
+        except Exception as e:
+            print(f"[WARNING] Failed to load premade mapping JSON: {str(e)}")
+            
+    assets = []
+    try:
+        for filename in os.listdir(premade_dir):
+            if filename == "premade_mapping.json" or filename.startswith("."):
+                continue
+                
+            file_path = os.path.join(premade_dir, filename)
+            if os.path.isfile(file_path) and filename.lower().endswith((".glb", ".gltf")):
+                size_bytes = os.path.getsize(file_path)
+                
+                # Check for custom override details
+                override = mapping.get(filename, {})
+                assets.append({
+                    "filename": filename,
+                    "sizeBytes": size_bytes,
+                    "customName": override.get("name"),
+                    "customCategory": override.get("category"),
+                    "customScale": override.get("scale")
+                })
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to scan premade assets directory: {str(e)}"
+        )
+        
+    return assets
+

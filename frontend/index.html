@@ -21,11 +21,36 @@
 </head>
 <body>
 
+  <!-- Portal Entry Landing Page -->
+  <div id="portal-overlay" class="portal-overlay">
+    <div class="portal-scanner-bg" aria-hidden="true"></div>
+    <div class="portal-content">
+      <h1 class="portal-title">METAVERSE VIEWPORTS</h1>
+      <p class="portal-subtitle">Select your entry point to inspect 3D assets</p>
+      
+      <div class="portal-cards">
+        <div id="portal-card-twin" class="portal-card interactive" role="button" tabindex="0">
+          <div class="portal-card-icon" aria-hidden="true">✦</div>
+          <h2>Digital Twin Creator</h2>
+          <p>Reconstruct your personalized 3D avatar from a single-view portrait photograph, complete with physical sizing metrics.</p>
+          <span class="portal-card-btn">Enter Mode</span>
+        </div>
+        
+        <div id="portal-card-premade" class="portal-card interactive" role="button" tabindex="0">
+          <div class="portal-card-icon" aria-hidden="true">📦</div>
+          <h2>Premade Showcase</h2>
+          <p>Inspect, rotate, and scale our high-fidelity catalog of preloaded industrial, domestic, and athletic 3D objects.</p>
+          <span class="portal-card-btn">Browse Assets</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Three.js Canvas Container -->
   <main id="canvas-container" aria-label="3D Viewport"></main>
 
   <!-- Drag-and-Drop Model Upload Container -->
-  <div id="upload-container" class="upload-container">
+  <div id="upload-container" class="upload-container" style="display: none;">
     <div class="scanner-background" aria-hidden="true"></div>
     <label id="upload-box" class="upload-box interactive" for="file-input" tabindex="0" role="button" aria-label="Upload 3D human model">
       <div class="upload-icon" aria-hidden="true">✦</div>
@@ -39,17 +64,34 @@
     <input type="file" id="file-input" accept="image/*" aria-hidden="true">
   </div>
 
+  <!-- Premade Assets Showcase Sidebar -->
+  <aside id="premade-assets-panel" class="panel premade-assets-panel interactive" style="display: none;">
+    <div class="panel-header" style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+      <h3 style="margin: 0; font-family: var(--font-title); font-size: 15px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px;">Premade Assets</h3>
+      <span id="asset-count-badge" class="badge" style="font-size: 11px; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); font-weight: bold; font-family: monospace;">0 Assets</span>
+    </div>
+    <div class="search-box-wrapper" style="margin-bottom: 12px;">
+      <input type="text" id="premade-search" placeholder="Search assets (e.g. chair, valve)..." style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; box-sizing: border-box; outline: none;">
+    </div>
+    <div id="premade-list" class="premade-list" style="max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 4px;">
+      <!-- Dynamically populated cards go here -->
+    </div>
+  </aside>
+
   <!-- Floating HUD Panel Overlay -->
   <div class="hud-overlay">
     
     <!-- Top Header Bar -->
     <header class="interactive">
       <div class="logo">
-        <h1>4D-HUMANS VR</h1>
-        <span>Immersive Mesh Inspector</span>
+        <h1 id="logo-title">4D-HUMANS VR</h1>
+        <span id="logo-subtitle">Immersive Mesh Inspector</span>
       </div>
       <div class="vr-controls" style="display: flex; gap: 8px; align-items: center;">
-        <button id="settings-btn" class="btn btn-secondary" style="padding: 10px 14px; border-radius: 50%; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;" aria-label="Configure Colab Server">
+        <button id="back-portal-btn" class="btn btn-secondary interactive" style="display: none; padding: 0 16px; height: 44px; font-family: var(--font-title); font-size: 11px; letter-spacing: 0.5px; border-radius: 8px; border: 1px dashed var(--border-color);">
+          ← PORTAL
+        </button>
+        <button id="settings-btn" class="btn btn-secondary" style="display: none; padding: 10px 14px; border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center;" aria-label="Configure Colab Server">
           <span style="font-size: 18px; line-height: 1;">⚙️</span>
         </button>
         <button id="enter-vr-btn" class="btn btn-secondary" disabled>
@@ -76,6 +118,39 @@
     <!-- Bottom HUD Info Bar -->
     <div class="controls-bottom">
       
+      <!-- Status Panel -->
+      <section class="panel status-panel interactive" aria-labelledby="status-title">
+        <h4 id="status-title" style="display:none">System Status</h4>
+        <div class="status-indicator">
+          <span id="status-text">Initializing...</span>
+          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        </div>
+        <div id="model-info-text" class="model-info">No model active</div>
+      </section>
+
+      <!-- Measurements Panel -->
+      <section id="measurements-panel" class="panel measurements-panel interactive" style="display: none;">
+        <h4>AI Sizing Measurements</h4>
+        <div class="measurements-grid">
+          <div class="measurement-item">
+            <span class="value" id="val-height">—</span>
+            <span class="label">Height</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-chest">—</span>
+            <span class="label">Chest</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-waist">—</span>
+            <span class="label">Waist</span>
+          </div>
+          <div class="measurement-item">
+            <span class="value" id="val-hip">—</span>
+            <span class="label">Hip</span>
+          </div>
+        </div>
+      </section>
+
       <!-- VR Instructions Panel (Collapsible) -->
       <section id="instructions-panel" class="panel instructions-panel interactive collapsed" aria-labelledby="instructions-title">
         <h4 id="instructions-title">
@@ -108,39 +183,6 @@
             <span>Left-click + Drag to rotate camera</span>
           </li>
         </ul>
-      </section>
-
-      <!-- Measurements Panel -->
-      <section id="measurements-panel" class="panel measurements-panel interactive" style="display: none;">
-        <h4>AI Sizing Measurements</h4>
-        <div class="measurements-grid">
-          <div class="measurement-item">
-            <span class="value" id="val-height">—</span>
-            <span class="label">Height</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-chest">—</span>
-            <span class="label">Chest</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-waist">—</span>
-            <span class="label">Waist</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-hip">—</span>
-            <span class="label">Hip</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Status Panel -->
-      <section class="panel status-panel interactive" aria-labelledby="status-title">
-        <h4 id="status-title" style="display:none">System Status</h4>
-        <div class="status-indicator">
-          <span id="status-text">Initializing...</span>
-          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
-        </div>
-        <div id="model-info-text" class="model-info">No model active</div>
       </section>
 
     </div>

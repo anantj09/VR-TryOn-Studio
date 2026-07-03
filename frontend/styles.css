@@ -508,3 +508,270 @@ header {
     border-radius: 20px;
   }
 }
+
+/* Portal Landing Screen Overlay */
+.portal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999;
+  background-color: #05050b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  pointer-events: auto;
+}
+
+.portal-scanner-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80vw;
+  height: 80vw;
+  max-width: 900px;
+  max-height: 900px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(123, 97, 255, 0.02) 50%, transparent 70%);
+  z-index: 1;
+  pointer-events: none;
+  animation: pulseScanner 6s infinite ease-in-out;
+}
+
+.portal-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 960px;
+  text-align: center;
+}
+
+.portal-title {
+  font-family: var(--font-title);
+  font-size: clamp(32px, 5vw, 54px);
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #00f0ff 0%, #7b61ff 50%, #ff007f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+  margin-bottom: 8px;
+}
+
+.portal-subtitle {
+  font-size: clamp(14px, 2vw, 18px);
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 48px;
+  text-transform: uppercase;
+}
+
+.portal-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
+  width: 100%;
+}
+
+.portal-card {
+  background: rgba(12, 12, 26, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(123, 97, 255, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border-radius: 20px;
+  padding: 40px 30px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.portal-card:hover, .portal-card:focus {
+  transform: translateY(-8px);
+  border-color: #00f0ff;
+  box-shadow: 0 15px 35px 0 rgba(0, 240, 255, 0.15),
+              0 0 15px rgba(0, 240, 255, 0.1);
+}
+
+.portal-card-icon {
+  font-size: 48px;
+  margin-bottom: 24px;
+  text-shadow: 0 0 15px var(--accent-glow);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-card h2 {
+  font-family: var(--font-title);
+  font-size: 22px;
+  color: #fff;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.portal-card p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 30px;
+  flex-grow: 1;
+}
+
+.portal-card-btn {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+}
+
+.portal-card:hover .portal-card-btn {
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* Premade Assets Panel Sidebar */
+.premade-assets-panel {
+  position: fixed;
+  top: 100px;
+  left: 24px;
+  width: 320px;
+  height: calc(100vh - 140px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+}
+
+.premade-search {
+  transition: all 0.3s ease;
+}
+
+.premade-search:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.premade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Premade Asset Card Items */
+.premade-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.premade-card:hover, .premade-card.active {
+  border-color: var(--accent-color);
+  background: rgba(123, 97, 255, 0.08);
+  box-shadow: inset 0 0 8px rgba(123, 97, 255, 0.1);
+  transform: translateX(4px);
+}
+
+.premade-card.active {
+  border-color: #00f0ff !important;
+  background: rgba(0, 240, 255, 0.08) !important;
+  box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.1) !important;
+}
+
+.premade-card-category {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.premade-card-title {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.premade-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Custom Scrollbar for Premade List */
+.premade-list::-webkit-scrollbar {
+  width: 4px;
+}
+.premade-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.premade-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+.premade-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+/* Mobile responsive rules for sidebar */
+@media (max-width: 767px) {
+  .premade-assets-panel {
+    top: auto;
+    bottom: 24px;
+    left: 24px;
+    width: calc(100vw - 48px);
+    height: 180px;
+    padding: 12px;
+  }
+  .premade-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none !important;
+  }
+  .premade-card {
+    min-width: 200px;
+    height: 90px;
+  }
+  .premade-list::-webkit-scrollbar {
+    height: 4px;
+    width: auto;
+  }
+  .premade-card:hover, .premade-card.active {
+    transform: translateY(-4px);
+  }
+}
+

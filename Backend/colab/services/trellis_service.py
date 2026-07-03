@@ -5,9 +5,10 @@ from PIL import Image
 from typing import Optional
 
 # Ensure the cloned TRELLIS repository path is added to sys.path so we can import trellis2 and o_voxel
-if os.path.exists("/content/TRELLIS"):
-    if "/content/TRELLIS" not in sys.path:
-        sys.path.insert(0, "/content/TRELLIS")
+for path in ["/content/TRELLIS", "/kaggle/working/TRELLIS"]:
+    if os.path.exists(path):
+        if path not in sys.path:
+            sys.path.insert(0, path)
 
 class TrellisService:
     def __init__(self):
@@ -28,15 +29,34 @@ class TrellisService:
             raise RuntimeError("CUDA is not available. TRELLIS.2 requires a CUDA-enabled GPU.")
 
         os.environ['SPCONV_ALGO'] = 'native'
+        os.environ['ATTN_BACKEND'] = 'xformers'
+        os.environ['SPARSE_ATTN_BACKEND'] = 'xformers'
         
-        # Load the SOTA TRELLIS.2 pipeline with proper half-precision to fit within Colab VRAM limits
+        # Determine best dtype (bfloat16 requires Ampere capability >= 8.0, float16 otherwise)
+        dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+        print(f"Loading pipeline weights...")
+        
+        # Set default dtype to float16 to prevent CPU RAM OOM during weight loading
+        torch.set_default_dtype(torch.float16)
+        
+        # Load the SOTA TRELLIS.2 pipeline
         from trellis2.pipelines import Trellis2ImageTo3DPipeline
-        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-        print(f"Loading pipeline weights with precision: {dtype}...")
         self.pipeline = Trellis2ImageTo3DPipeline.from_pretrained(
-            "microsoft/TRELLIS.2-4B",
-            torch_dtype=dtype
+            "microsoft/TRELLIS.2-4B"
         )
+        
+        # Restore default dtype to float32
+        torch.set_default_dtype(torch.float32)
+        
+        # Cast only the compatible layers of sub-models to half precision to preserve LayerNorm/buffer precision
+        from trellis2.modules.utils import convert_module_to
+        print(f"Casting compatible layers of pipeline models to precision: {dtype}...")
+        for name, model in self.pipeline.models.items():
+            model.apply(lambda m: convert_module_to(m, dtype))
+            
+        if hasattr(self.pipeline, 'image_cond_model') and self.pipeline.image_cond_model is not None:
+            self.pipeline.image_cond_model.apply(lambda m: convert_module_to(m, dtype))
+            
         self.pipeline.cuda()
         self.initialized = True
         print("--- TRELLIS.2 Pipeline successfully loaded on GPU ---")
@@ -66,8 +86,10 @@ class TrellisService:
                 
             # 4. Run TRELLIS.2 pipeline
             print("Running TRELLIS.2 model inference (this may take 10-20 seconds)...")
+            dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
             with torch.no_grad():
-                outputs = self.pipeline.run(img)
+                with torch.cuda.amp.autocast(enabled=True, dtype=dtype):
+                    outputs = self.pipeline.run(img)
                 
             # 5. Extract mesh and post-process to GLB
             print("Post-processing 3D Mesh data to GLB container...")

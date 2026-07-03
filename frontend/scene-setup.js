@@ -41,7 +41,7 @@ export function initScene(canvasContainer) {
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go below floor level
     controls.minDistance = 0.5;
-    controls.maxDistance = 10;
+    controls.maxDistance = 25; // Allowed more zoom out range
     controls.update();
 
     // 5. Create Model Container Group at target Z = -1.5

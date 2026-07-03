@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-TEMP_DIR = "/content/temp_generation"
+TEMP_DIR = "/content/temp_generation" if os.path.exists("/content") else "/kaggle/working/temp_generation"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 @app.post("/api/v1/colab/generate")

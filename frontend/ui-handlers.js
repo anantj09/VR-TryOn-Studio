@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { modelContainer, onWindowResize } from './scene-setup.js';
 import { loadModel } from './model-loader.js';
 import { broadcastState } from './ws-client.js';
@@ -457,4 +458,243 @@ export function setupUI() {
             }
         }
     });
+
+    // Portal Overlay Card Triggers
+    const portalOverlay = document.getElementById('portal-overlay');
+    const portalCardTwin = document.getElementById('portal-card-twin');
+    const portalCardPremade = document.getElementById('portal-card-premade');
+    const backPortalBtn = document.getElementById('back-portal-btn');
+    const premadePanel = document.getElementById('premade-assets-panel');
+    const logoTitle = document.getElementById('logo-title');
+    const logoSubtitle = document.getElementById('logo-subtitle');
+
+    if (portalCardTwin && portalOverlay) {
+        portalCardTwin.addEventListener('click', () => {
+            portalOverlay.style.opacity = '0';
+            setTimeout(() => {
+                portalOverlay.style.visibility = 'hidden';
+            }, 400);
+            uploadContainer.style.display = 'flex';
+            if (premadePanel) premadePanel.style.display = 'none';
+            if (backPortalBtn) backPortalBtn.style.display = 'block';
+            if (logoTitle) logoTitle.textContent = "4D-HUMANS VR";
+            if (logoSubtitle) logoSubtitle.textContent = "Immersive Mesh Inspector";
+            if (settingsBtn) settingsBtn.style.display = 'inline-flex';
+            updateStatus("System Ready (Twin Mode)", "active");
+        });
+    }
+
+    if (portalCardPremade && portalOverlay) {
+        portalCardPremade.addEventListener('click', () => {
+            portalOverlay.style.opacity = '0';
+            setTimeout(() => {
+                portalOverlay.style.visibility = 'hidden';
+            }, 400);
+            uploadContainer.style.display = 'none';
+            if (premadePanel) {
+                premadePanel.style.display = 'flex';
+                // Reset search box before loading
+                const searchInput = document.getElementById('premade-search');
+                if (searchInput) searchInput.value = '';
+                loadPremadeAssetsList();
+            }
+            if (backPortalBtn) backPortalBtn.style.display = 'block';
+            if (logoTitle) logoTitle.textContent = "PREMADE ASSETS";
+            if (logoSubtitle) logoSubtitle.textContent = "Object Showcase Catalog";
+            if (settingsBtn) settingsBtn.style.display = 'none';
+            if (settingsPanel) settingsPanel.style.display = 'none';
+            updateStatus("System Ready (Showcase Mode)", "active");
+        });
+    }
+
+    if (backPortalBtn && portalOverlay) {
+        backPortalBtn.addEventListener('click', () => {
+            removeCurrentModel();
+            hideMeasurementsPanel();
+            
+            // Hide the load another button if it exists
+            const loadAnotherBtn = document.getElementById('load-another-btn');
+            if (loadAnotherBtn) loadAnotherBtn.style.display = 'none';
+            
+            portalOverlay.style.visibility = 'visible';
+            portalOverlay.style.opacity = '1';
+            
+            uploadContainer.style.display = 'none';
+            if (premadePanel) premadePanel.style.display = 'none';
+            backPortalBtn.style.display = 'none';
+            if (logoTitle) logoTitle.textContent = "4D-HUMANS VR";
+            if (logoSubtitle) logoSubtitle.textContent = "Immersive Mesh Inspector";
+            if (settingsBtn) settingsBtn.style.display = 'none';
+            if (settingsPanel) settingsPanel.style.display = 'none';
+            updateStatus("Selecting Mode...", "active");
+        });
+    }
+
+    // Active Search Filtering
+    const searchInput = document.getElementById('premade-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase().trim();
+            const queryTerms = query.split(/\s+/).filter(t => t !== '');
+            
+            if (queryTerms.length === 0) {
+                renderAssets(allPremadeAssets);
+                return;
+            }
+            
+            const filtered = allPremadeAssets.filter(asset => {
+                const parsedName = formatAssetName(asset.filename).toLowerCase();
+                const displayName = (asset.customName || parsedName.split(' > ').pop() || asset.filename).toLowerCase();
+                const category = (asset.customCategory || parsedName.substring(0, parsedName.lastIndexOf(' > ')) || "General").toLowerCase();
+                
+                // Card matches query if all typed search terms are present in name or category
+                return queryTerms.every(term => 
+                    displayName.includes(term) || 
+                    category.includes(term) || 
+                    asset.filename.toLowerCase().includes(term)
+                );
+            });
+            renderAssets(filtered);
+        });
+    }
 }
+
+// Variable to store loaded premade catalog list for filtering
+let allPremadeAssets = [];
+
+export function formatAssetName(filename) {
+    let name = filename.replace(/\.(glb|gltf)$/i, '');
+    // Strip standard metadata and random number suffixes
+    name = name.replace(/_(sc|fi|sa|ai|ta|ut|am|go|ro|di|co|pl|de|la|se|ho|pr|ba|cl|ae|cr|te|to|ag|fu|ac|of|so|pa|or|pu|su|ma)\d+/gi, '');
+    name = name.replace(/_\d+/g, '');
+    if (name.startsWith('home_')) name = name.substring(5);
+    
+    // Capitalize and format path segments
+    return name.split('_').map(word => {
+        if (!word) return '';
+        if (word.length <= 4) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).filter(word => word !== '').join(' > ');
+}
+
+export function loadPremadeAssetsList() {
+    const listContainer = document.getElementById('premade-list');
+    const badge = document.getElementById('asset-count-badge');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; padding: 12px;">Loading catalog...</div>';
+    
+    const backendHost = window.location.hostname;
+    const backendUrl = `http://${backendHost}:8000/api/v1/premade/list`;
+    
+    fetch(backendUrl)
+        .then(response => response.json())
+        .then(data => {
+            allPremadeAssets = data;
+            if (badge) badge.textContent = `${data.length} Assets`;
+            renderAssets(data);
+        })
+        .catch(err => {
+            console.error("Failed to load premade assets list:", err);
+            listContainer.innerHTML = '<div style="color: #ff0055; font-size: 12px; padding: 12px;">Failed to load catalog. Verify backend is running.</div>';
+        });
+}
+
+function renderAssets(assets) {
+    const listContainer = document.getElementById('premade-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '';
+    
+    if (assets.length === 0) {
+        listContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; padding: 12px;">No assets found.</div>';
+        return;
+    }
+    
+    const backendHost = window.location.hostname;
+    
+    assets.forEach(asset => {
+        const card = document.createElement('div');
+        card.className = 'premade-card interactive';
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        
+        // Retrieve display elements (fall back to dynamic parser if custom fields are missing)
+        const parsedName = formatAssetName(asset.filename);
+        const displayName = asset.customName || parsedName.split(' > ').pop() || asset.filename;
+        const category = asset.customCategory || parsedName.substring(0, parsedName.lastIndexOf(' > ')) || "General";
+        
+        const sizeMb = (asset.sizeBytes / (1024 * 1024)).toFixed(2);
+        
+        card.innerHTML = `
+            <div class="premade-card-category">${category}</div>
+            <div class="premade-card-title">${displayName}</div>
+            <div class="premade-card-meta">
+                <span>${sizeMb} MB</span>
+                <span class="badge-ready" style="color: var(--success-color); font-size: 8px;">● READY</span>
+            </div>
+        `;
+        
+        let absoluteUrl = `http://${backendHost}:8000/static/premade/${asset.filename}`;
+        if (asset.customScale !== null && asset.customScale !== undefined) {
+            absoluteUrl += `?scale=${asset.customScale}`;
+        }
+        card.addEventListener('click', () => {
+            const activeCards = listContainer.querySelectorAll('.premade-card');
+            activeCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            loadPremadeAsset(absoluteUrl, asset.filename, displayName, category);
+        });
+        
+        listContainer.appendChild(card);
+    });
+}
+
+export function loadPremadeAsset(url, filename, displayName, category) {
+    updateStatus("Downloading asset...", "loading");
+    removeCurrentModel();
+    hideMeasurementsPanel();
+    
+    loadModel(
+        url,
+        modelContainer,
+        (model) => {
+            currentModel = model;
+            currentModelUrl = url;
+            currentModelMeasurements = null; // No physical sizing measurements for premade models
+            
+            // Broadcast state to spectator view
+            broadcastState({
+                type: 'load',
+                url: url,
+                measurements: null
+            });
+            
+            updateStatus("Model Rendered (Aligned)", "active");
+            
+            // Compute dimensions of the loaded/scaled model
+            const box = new THREE.Box3().setFromObject(model);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            
+            // Update HUD info bar with model details and dimensions
+            modelInfoText.innerHTML = `
+                Asset: ${displayName}<br>
+                Size: ${size.x.toFixed(2)}m x ${size.y.toFixed(2)}m x ${size.z.toFixed(2)}m<br>
+                Polygons: ${countPolygons(model).toLocaleString()} faces
+            `;
+        },
+        (progress) => {
+            if (progress.total > 0) {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                updateStatus(`Downloading... ${percent}%`, "loading");
+            }
+        },
+        (error) => {
+            console.error("Error loading premade asset:", error);
+            updateStatus("Load Failed", "loading");
+            alert("Failed to render the 3D model. Verify the file path and format.");
+        }
+    );
+}
+

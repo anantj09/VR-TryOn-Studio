@@ -16,3 +16,6 @@ easydict>=1.10
 pyvista>=0.40.0
 omegaconf>=2.3.0
 simple-knn
+onnxruntime
+xformers
+
