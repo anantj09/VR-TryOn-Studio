@@ -1,0 +1,6 @@
+outs:
+- md5: b26a189d0c398455619f59425d63b5bc.dir
+  size: 215322982
+  nfiles: 1118
+  hash: md5
+  path: dataset_myntra
