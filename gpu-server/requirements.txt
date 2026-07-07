@@ -1,0 +1,35 @@
+# FastAPI endpoints & network utilities
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+pillow>=10.2.0
+httpx>=0.27.0
+numpy>=1.24.0,<2.0.0
+opencv-python>=4.9.0
+trimesh
+
+# CatVTON Try-On & Stable Diffusion
+diffusers>=0.21.0
+transformers>=4.30.0
+accelerate>=0.20.0
+huggingface-hub>=0.16.0
+
+# Super-Resolution (Real-ESRGAN + GFPGAN)
+gfpgan>=1.3.8
+realesrgan>=0.3.0
+basicsr>=1.4.2
+
+# 4D-Humans Model Dependencies
+timm
+yacs
+pytorch-lightning==1.8.1
+smplx==0.1.28
+einops
+dill
+omegaconf
+hydra-core
+rich
+
+# Direct Git Repositories (installable via pip)
+git+https://github.com/mattloper/chumpy.git
+git+https://github.com/facebookresearch/detectron2.git
