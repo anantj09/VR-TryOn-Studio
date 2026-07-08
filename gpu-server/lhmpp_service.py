@@ -1,7 +1,11 @@
 import os
 import subprocess
 
-LHM_ROOT = os.environ.get("LHM_ROOT", "/home/bisagn/projectgsv/3dhuman/models/LHM-plusplus")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sibling_lhm_root = os.path.abspath(os.path.join(current_dir, "..", "models", "LHM-plusplus"))
+LHM_ROOT = os.environ.get("LHM_ROOT")
+if not LHM_ROOT:
+    LHM_ROOT = sibling_lhm_root
 
 class LhmppService:
     def reconstruct_3d(self, job_id: str, image_path: str) -> str:
