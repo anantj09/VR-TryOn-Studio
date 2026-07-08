@@ -1,185 +1,438 @@
-# Immersive 3D Digital Twin WebXR Viewer
+# VR Try-On Studio & Immersive WebXR Avatar Creator
 
-An immersive, hardware-accelerated WebXR browser application integrated with a Python AI backend to reconstruct and inspect customized 3D human digital twins from single-view portrait images.
+[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.139.0-009688.svg)](https://fastapi.tiangolo.com/)
+[![Three.js](https://img.shields.io/badge/Three.js-r128-black.svg)](https://threejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
+[![CUDA](https://img.shields.io/badge/CUDA-11.8%20%2F%2012.1-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![DVC](https://img.shields.io/badge/DVC-Tracked-orange.svg)](https://dvc.org/)
+
+An immersive, hardware-accelerated WebXR virtual dressing room and digital twin application. The project is split into a lightweight **CPU API Gateway (Backend)**, a responsive **Static Client (Frontend)**, and a high-performance **GPU Inference Server** (supporting CatVTON try-on, AI Super-Resolution, and 4D-Humans 3D avatar reconstruction).
 
 ---
 
-## 1. System Architecture & Workings
+## 1. System Architecture & Flows
+
+### A. Dual-Mode Operations Flow
+This diagram details the flow of user operations between the Digital Twin Creator and the Showcase Catalog:
 
 ```mermaid
 graph TD
-    %% Frontend Interaction
-    subgraph Frontend [Mobile Client - Three.js & WebXR]
-        UI[HTML/CSS HUD Dashboard] -- 1. Upload Photo / Trigger Demo --> Upload[XMLHttpRequest Upload Engine]
-        Canvas[WebGL Canvas] -- 5. Render 3D Scene --> Viewport[Screen Viewport]
-        XR[WebXR Device API] -- 6. Split Stereo Projections --> VR[VR Headset / Mobile Cardboard]
-        Gamepad[Gamepad API] -- 7. Bluetooth Controls --> Canvas
-        Broadcaster[Broadcaster Client] -- 8. Stream 3D State/Camera --> WS_Conn[WebSocket Connection]
+    Portal[Landing Portal Entry] -->|Mode A| TwinMode[Digital Twin Creator]
+    Portal -->|Mode B| ShowcaseMode[Premade Showcase Catalog]
+
+    subgraph TwinMode [Digital Twin Mode]
+        Upload[Upload Portrait Image] --> Pose[MediaPipe Pose Estimator]
+        Pose --> Sizing[CPU Body Sizing Module]
+        Sizing --> Router{GPU Server URL Set?}
+        Router -->|Yes| GPUServer[Remote GPU Server]
+        Router -->|No| ErrorState[503 Service Unavailable]
+        GPUServer -->|Textured GLB Mesh| RenderTwin[Renders Avatar @ 1.8m Height]
     end
 
-    %% Backend Processing
-    subgraph Backend [FastAPI Server - Python]
-        API[FastAPI Router API] -- 2. Receives Multipart Image --> SegService[Segmentation Service]
-        SegService -- 3. Runs SAM on CPU --> Crop[Person Crop & Mask]
-        Crop -- 4. Runs HMR2 on GPU --> MeshGen[HMR2 Reconstruction Engine]
-        MeshGen -- a. Predicts SMPL Parameters --> SMPL[SMPL Neutral Template .pkl]
-        MeshGen -- b. Computes Vertex Distances --> Measurements[AI Body Sizing Measurements]
-        MeshGen -- c. Formats Triangles --> GLTF[GLTF Mesh File Exporter]
-        WSRelay[WebSocket /ws/stream Relay]
+    subgraph ShowcaseMode [Showcase Mode]
+        List[FastAPI /premade/list Scan] --> DynamicMapping[Map names, scales & categories]
+        DynamicMapping --> UIList[Showcase Sidebar list with Search & Filter]
+        UIList --> RenderAsset[Renders Model normalized to 1.5m]
     end
 
-    %% Spectator Console
-    subgraph Spectator [Laptop Spectator Screen]
-        SpecCanvas[WebGL Canvas] -- Renders 3D Model --> SpecViewport[Single Screen Viewport]
-        SpecReceiver[Spectator Client] -- Apply Transformations/Camera --> SpecCanvas
+    subgraph Viewport [Three.js & WebGL Renderer]
+        RenderTwin --> WebXR[WebXR Device API]
+        RenderAsset --> WebXR
+        WebXR --> Stereo[Stereoscopic VR / Mobile Cardboard]
+        WebXR --> Gamepad[VR Gamepad Joystick controls]
+        WebXR --> WIP[Walking-in-Place Locomotion]
+        WebXR -->|30 FPS Transform & Camera Stream| WS[WebSocket Client]
     end
 
-    %% Communications
-    Upload -- HTTP POST --> API
-    GLTF -- HTTP GET Mesh URL --> Upload
-    Measurements -- JSON Response --> UI
-    WS_Conn -- Stream coordinates/actions --> WSRelay
-    WSRelay -- Broadcast to Spectators --> SpecReceiver
+    subgraph SpectatorConsole [Laptop/Mobile Spectator View]
+        WSRelay[WebSocket /ws/stream Relay] --> SpecClient[Spectator Page Mirror]
+        WS -->|Network Packets| WSRelay
+        SpecClient -->|Apply Transforms & Camera| SpecCanvas[Spectator 3D Canvas]
+        SpecClient -->|Display Sizing Panel| SpecHUD[Display Height, Chest, Waist, Hips HUD]
+    end
 ```
 
-### Frontend Technology Stack (Three.js, WebGL & WebXR)
-* **WebGL:** Communicates directly with the GPU using compiled shaders to draw human meshes consisting of thousands of triangles at high framerates.
-* **Three.js:** Exposes clean object-oriented APIs to manage the scene graph, lighting nodes (Ambient fill, Hemisphere sky bounce, Directional key, and Neon spotlights), dynamic shadow maps, and material calibrations.
-* **WebXR Device API:** Negotiates high-refresh-rate stereoscopic viewpoints, manages inter-pupillary distance (IPD) offsets inside VR headsets, and polls gamepad controller triggers.
+### B. Network Topology & Port Mapping
+This diagram outlines the port configurations and network routing between the frontend client, the CPU gateway host, and the GPU compute server:
 
-### Backend Technology Stack (4D-Humans & SMPL)
-* **Segmentation Service:** Uses **Detectron2** to locate the subject and **Segment Anything Model (SAM)** (run on CPU to optimize VRAM footprint) to extract a clean background mask.
-* **Feature Extraction:** Feeds the cropped human bounding box through a **ViT-Det (Vision Transformer)** backbone to extract detailed pose and body shape representations.
-* **SMPL Body Template:** Predicts 10 shape parameters ($\beta$ PCA coefficients) and 72 pose parameters ($\theta$ joint rotations), deforming the 6,890 template vertices of [basicModel_neutral_lbs_10_207_0_v1.0.0.pkl](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/Backend/data/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl) to generate a customized mesh.
-* **AI Sizing Calculations:** Computes Euclidean distances between specific indices of the deforming body vertices to estimate Height, Chest, Waist, and Hip circumferences in centimeters.
+```mermaid
+graph LR
+    subgraph ClientPC [Client Machine e.g. Laptop]
+        Browser[Static Frontend Client] -->|Port 8080| WebServer[Nginx / Local Web Server]
+        Browser -->|WebSocket WS/WSS| CPUBackend[FastAPI CPU Gateway - Port 8000]
+    end
 
-### WebSocket State Synchronization Relay
-* **State Broadcasting:** Mobile client polls and streams model URLs, transformation changes, and camera coordinates at 30 FPS over WebSockets to a FastAPI relay endpoint.
-* **Spectator Mirroring:** The spectator page receives the stream, normalizes mesh URLs to prevent CORS conflicts, and applies coordinates directly onto a flat-screen camera to sync the viewport.
+    subgraph ServerPC [Compute Machine e.g. Local GPU PC or Colab]
+        CPUBackend -->|REST API Requests| GPUServer[FastAPI GPU Server - Port 8001 / 8000]
+        GPUServer -->|CUDA Acceleration| GPU[NVIDIA GPU VRAM]
+    end
+```
+
+### C. Twin Mesh Generation & Try-On Pipeline
+This diagram traces the sequence of operations from the initial image upload to the final 3D asset rendering:
+
+```mermaid
+sequenceDiagram
+    participant User as Frontend Client
+    participant CPU as CPU Gateway (8000)
+    participant GPU as GPU Server (8001)
+
+    User->>CPU: Upload Portrait & Pose Data
+    CPU->>CPU: Segment Silhouette & Extract Landmarks
+    CPU->>GPU: Forward segmented image & size profile
+    GPU->>GPU: Run 4D-Humans (HMR2) Mesh Reconstruction
+    GPU->>GPU: Run CatVTON Try-On Model
+    GPU->>GPU: Apply Super-Resolution & Face Restoration
+    GPU->>CPU: Return Textured 3D Mesh (GLB) & try-on outputs
+    CPU->>User: Serve assets & stream updates via WebSocket
+```
 
 ---
 
 ## 2. Directory Layout & Module Maps
 
+The codebase is organized into a modular, container-ready microservices layout:
+
 ```bash
 internship_week3/
 │
-├── frontend/                     # Client application (Static Web Server Root)
-│   ├── data/demo/                # Offline fallback meshes
-│   │   └── 9dc6216c..._mesh.gltf # Local mannequin fallback model
-│   ├── index.html                # HTML DOM structure and Importmaps
+├── frontend/                     # Client Web Application
+│   ├── Dockerfile                # Nginx docker image configuration
+│   ├── index.html                # Main Portal Entry and Importmaps
 │   ├── spectator.html            # Desktop Spectator single-view layout
-│   ├── styles.css                # Cyberpunk overlays and mobile layouts
+│   ├── styles.css                # Cyberpunk styling overlays and responsive HUDs
 │   ├── viewer.js                 # App Entry Point & Animation loop
 │   ├── spectator.js              # Spectator controller and render loop
-│   ├── ws-client.js              # WebSocket client interface
-│   ├── scene-setup.js            # Three.js core setups (lights, cameras, renderer)
-│   ├── xr-manager.js             # WebXR session triggers and mobile resets
-│   ├── ui-handlers.js            # Event listeners and XHR upload progress engine
-│   ├── model-loader.js           # GLTF meshes alignment and surface calibration
-│   └── gamepad.js                # VR bluetooth joystick polling
+│   ├── ws-client.js              # WebSocket client interface (bracket IPv6 patched)
+│   ├── scene-setup.js            # Three.js setups (lights, cameras, renderer)
+│   ├── xr-manager.js             # WebXR session triggers and resets
+│   ├── ui-handlers.js            # Mode selectors, uploads & search filter
+│   ├── model-loader.js           # GLTF/GLB alignment and surface calibration
+│   ├── gamepad.js                # VR bluetooth joystick polling
+│   ├── wip-locomotion.js         # Accelerometer-based stepping locomotion
+│   └── data/                     # Client local assets
+│       ├── assets/               # Standard UI placeholders, logos & icons
+│       └── demo/                 # sample_mesh.ksplat (Three.js viewer splash mesh)
 │
-├── Backend/                      # Python FastAPI server
-│   ├── api/routes/mesh.py        # Mesh POST generation route
-│   ├── services/                 # AI reconstruction orchestrators
-│   │   ├── segmentation_service.py # Runs SAM background isolation (CPU)
-│   │   └── mesh_service.py       # Interacts with HMR2 and exports GLTF
-│   ├── data/                     # Neutral SMPL template weights (.pkl)
-│   ├── weights/                  # Pre-trained deep learning checkpoint weights
-│   ├── main.py                   # FastAPI initialization
-│   └── requirements.txt          # Python package dependency configurations
+├── Backend/                      # Python FastAPI server (CPU Host / API Gateway)
+│   ├── Dockerfile                # CPU-optimized Python docker configuration
+│   ├── main.py                   # FastAPI initialization, WebSocket relay & scavenger
+│   ├── dataset_preprocessing.py  # Offline clothes extractor for dataset compilation
+│   ├── requirements.txt          # Lightweight CPU-only Python requirements
+│   ├── api/routes/
+│   │   ├── catalog.py            # Serves processed clothing items lists
+│   │   ├── mesh.py               # Re-routes 3D twin / try-on requests to GPU Server
+│   │   ├── photo.py              # Handles image validation & landmark extraction
+│   │   └── recommend.py          # Size recommenders matching catalog to user pose
+│   ├── core/
+│   │   ├── config.py             # Loads environment variables from .env
+│   │   └── database.py           # In-memory mock database for active user profiles
+│   └── services/
+│       ├── pose_service.py       # Extracts MediaPipe landmarks
+│       └── segmentation_service.py # Generates silhouette masks (CPU optimized)
 │
-└── README.md                     # Project documentation
+├── gpu-server/                   # Remote GPU Inference Server
+│   ├── Dockerfile                # NVIDIA CUDA PyTorch compiler docker configuration
+│   ├── main.py                   # GPU Server FastAPI (expose /reconstruct-4d & /tryon)
+│   ├── catvton_service.py        # CatVTON Diffusion model execution
+│   ├── upscaler_service.py       # Real-ESRGAN and GFPGAN AI Super-Resolution
+│   ├── hmr2_service.py           # 4D-Humans 3D avatar mesh builder
+│   ├── lhmpp_service.py          # LHM++ 3D model processing executor
+│   ├── requirements.txt          # Heavy CUDA/Deep-Learning Python requirements
+│   └── setup_models.py           # Hugging Face & ModelScope weights pre-downloader
+│
+├── data/                         # Data assets (Excluded from Git / Tracked via DVC)
+│   ├── dataset_myntra/           # Raw Myntra source images (DVC Tracked)
+│   ├── dataset_processed/        # Preprocessed transparent clothing & catalog.json (User Generated)
+│   ├── premade/                  # Showcase 3D model meshes (DVC Tracked)
+│   └── meshes/                   # Runtime user-generated 3D twin models
+│
+├── setup_project.py              # Automated virtualenv setup script
+├── run_colab_gpu.ipynb           # Google Colab / Kaggle remote GPU tunnel notebook
+├── docker-compose.yml            # Multi-container orchestration (web, backend, GPU)
+└── .gitignore                    # Global gitignore excluding weights, caches & venvs
 ```
 
 ---
 
-## 3. WebXR & VR Code Integration Locations
-WebXR session setups are implemented inside [viewer.js](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/frontend/viewer.js) and [xr-manager.js](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/frontend/xr-manager.js):
+## 3. Pre-Trained Weights & Model Cache Setup
 
-* **WebGLRenderer WebXR Activation:** Enabled via `renderer.xr.enabled = true` inside `initScene()` in [scene-setup.js](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/frontend/scene-setup.js).
-* **Hardware Support Checks:** Queries `navigator.xr.isSessionSupported('immersive-vr')` inside `setupWebXR()` in [xr-manager.js](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/frontend/xr-manager.js) to enable the VR button.
-* **VR Presentation Session:** Calls `navigator.xr.requestSession('immersive-vr')` and feeds it into the renderer via `renderer.xr.setSession(session)`.
-* **Animation Loop Compatibility:** Handled using `renderer.setAnimationLoop(renderLoop)` in [viewer.js](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/frontend/viewer.js) as standard `requestAnimationFrame` is blocked under immersive WebXR.
+The 3D mesh reconstruction module (4D-Humans) requires neutral body template weights (SMPL model) which cannot be distributed directly in the repository due to licensing restrictions. These weights must be manually downloaded and placed in the system's cache folder before running the GPU server.
 
----
+### Step-by-Step SMPL Weights Setup:
+1. **Register an Account**: Go to the MPI SMPLify website (https://smplify.is.tue.mpg.de/) and create a free account.
+2. **Download the Package**: Once logged in, go to the Downloads page and download the package titled "SMPL for Python" (version 1.0.0).
+3. **Extract and Rename**: Extract the downloaded zip file. Navigate inside it to find the file `basicModel_neutral_lbs_10_207_0_v1.0.0.pkl`. Rename this file to `SMPL_NEUTRAL.pkl` (all uppercase).
+4. **Place in Cache Folder**: Create the directory structure on the machine running the GPU server (or your local computer if running locally) and place the renamed file inside:
+   * **Linux / Google Colab**: Copy the file to `~/.cache/4DHumans/data/smpl/SMPL_NEUTRAL.pkl` (create the directory if it does not exist: `mkdir -p ~/.cache/4DHumans/data/smpl`)
+   * **Windows**: Copy the file to `C:\Users\<Your_Windows_Username>\.cache\4DHumans\data\smpl\SMPL_NEUTRAL.pkl`
+5. **Other AI Weights**: All other model weights (such as CatVTON try-on models, ViTDet object detectors, Real-ESRGAN upscalers, and GFPGAN face restorers) are public. They will automatically download from Hugging Face on the first run of the server, or they can be pre-cached by running the automated downloader script.
 
-## 4. Local Setup & Installation
-
-### A. Start the Python Backend (Port 8000)
-1. Navigate into the `Backend` directory:
-   ```cmd
-   cd Backend
-   ```
-2. Activate your virtual environment:
-   * **PowerShell:** `.venv/Scripts/Activate.ps1`
-   * **Command Prompt (cmd):** `.venv\Scripts\activate.bat`
-3. Run the FastAPI development server bound to all local interfaces:
-   ```cmd
-   .venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000
-   ```
-
-### B. Start the Frontend Web Server (Port 8080)
-1. Open a separate terminal and navigate into the `frontend` folder:
-   ```cmd
-   cd frontend
-   ```
-2. Relaunch the static file server:
-   ```cmd
-   npx serve -l 8080
-   ```
-
-### C. Google Colab 3D Generation Setup (Optional - for high-fidelity meshes)
-1. Open [colab_runner.ipynb](file:///c:/Coding_files/Internship3rdYEAR/VR_development/internship_week3/colab_runner.ipynb) in Google Colab.
-2. Retrieve your **Ngrok Authtoken** from the [Ngrok Dashboard](https://dashboard.ngrok.com/).
-3. Paste the authtoken into the second code cell of the notebook.
-4. Run all cells in Colab. Once the server starts and the tunnel is online, copy the generated HTTPS ngrok URL (e.g. `https://xxxx.ngrok-free.app`).
-5. Open the web interface at `http://localhost:8080` (or `http://localhost:8080` via Chrome Port Forwarding on mobile).
-6. Click the **Settings Cog (⚙️)** in the top header and paste the ngrok URL.
-7. Any subsequent image uploads will now route the visual 3D generation to the high-performance TRELLIS model in Colab, while the body sizing is executed locally on the backend. If the tunnel goes offline, the system automatically falls back to local procedural mannequin generation.
+### Storage Space Estimation:
+- **CPU Host (Backend + Frontend)**: ~2.5 GB total
+  - Python Virtual Environment: ~1.5 GB
+  - Datasets & Showcase Assets: ~1.0 GB
+- **GPU Host (GPU Server + AI Weights)**: ~22.0 GB - 25.0 GB total
+  - GPU Virtual Environment (PyTorch, Detectron2, etc.): ~5.0 GB
+  - Stable Diffusion Inpainting & CatVTON weights: ~8.0 GB
+  - LHM++ prior files & LHMPP-700M model: ~4.1 GB
+  - 4D-Humans (HMR2) & Detectron2 weights: ~2.1 GB
+  - Real-ESRGAN, GFPGAN, SMPL templates, and Job outputs: ~1.0 GB
 
 ---
 
-## 5. Mobile & Headset Connectivity Configurations
+## 4. Dataset Management & Preprocessing
 
-Because WebXR sensors require a **Secure Context**, browsers block VR/AR components over raw HTTP unless accessed via `localhost` or configured specifically.
+The raw datasets are tracked using DVC (Data Version Control) to keep the Git repository lightweight.
 
-### Method 1: Google Chrome Flags Bypass (Wireless)
-1. Connect both your phone and laptop to the **same local Wi-Fi network**.
-2. Note your laptop's local IP address (e.g. `192.168.1.15`).
-3. On your mobile phone, open Chrome and navigate to: **`chrome://flags`**
-4. Search for: **"Insecure origins treated as secure"**.
-5. Enable the flag and input your laptop's address:
-   `http://192.168.1.15:8080`
-6. Relaunch Chrome. Open the page `http://192.168.1.15:8080` to interact.
+### A. Download Datasets (via DVC)
+The DVC remote storage repository configuration is pre-configured inside `.dvc/config`. Users do not need to manually configure credentials to pull files. To pull the datasets directly to the workspace, run:
+```powershell
+dvc pull
+```
+*(This downloads data/dataset_myntra and data/premade instantly to the local workspace.)*
 
-### Method 2: USB Port Forwarding (Recommended - Network Independent)
-1. Connect your mobile device to your laptop with a USB cable (with **USB Debugging** enabled in developer options).
-2. Open Chrome on your laptop and go to: **`chrome://inspect`**
-3. Click **Port forwarding...** and add two configurations:
-   * Port `8080` $\rightarrow$ `localhost:8080`
-   * Port `8000` $\rightarrow$ `localhost:8000`
-4. Now, open **`http://localhost:8080`** directly on your phone. Chrome treats `localhost` as secure automatically, requiring no flags or IP updates if you change networks.
-
----
-
-## 6. WebXR VR Gamepad Controller Mapping
-
-When wearing a VR headset, you can control the digital twin using your controller thumbsticks:
-
-* **Left Stick X-Axis (Horizontal):** Rotates the human twin on the Y-axis.
-* **Left Stick Y-Axis (Vertical):** Scales the human twin size (range restricted from `0.3x` to `3.0x` for physics accuracy).
-* **Button A (Index 0):** Resets the twin's rotation and scale back to baseline.
-* **Button B (Index 1):** Terminates the immersive session programmatically to return to flat mode.
-* **Button X (Index 2):** Toggles the visibility of the on-screen controls panel.
+### B. Generate Processed Clothes Catalog
+data/dataset_processed/ is not checked in to Git. To generate the cropped, transparent clothing items and build the catalog.json database, run the preprocessing script inside the Backend folder:
+* **On Windows**:
+  ```powershell
+  cd Backend
+  .venv\Scripts\activate
+  python dataset_preprocessing.py
+  ```
+* **On Linux/macOS**:
+  ```bash
+  cd Backend
+  source .venv/bin/activate
+  python dataset_preprocessing.py
+  ```
+*(This parses all images, runs SegFormer/CPU-thresholding to isolate the clothes, and compiles the database at data/dataset_processed/catalog.json.)*
 
 ---
 
-## 7. Real-Time Spectator Mirroring Console
+## 5. Repository Dependencies Setup (CatVTON & LHM++)
 
-To show a live feed of your VR/flat session on your laptop:
+The GPU server relies on external modules from CatVTON (Virtual Try-on) and LHM++ (Large Human Model). These repositories must be cloned into the shared models directory in the project root:
 
-1. Open **`http://localhost:8080/spectator.html`** in your laptop's web browser.
-2. Open **`http://<laptop_ip>:8080`** (or `http://localhost:8080` via USB) on your mobile device.
-3. Once the mobile viewer loads/unloads models, rotates the mannequin, or moves the camera in immersive VR mode, the spectator console mirrors the exact viewpoint, scale, rotation, and AI measurements in real-time.
-4. **Orbit Control Override:** The spectator page turns off manual camera orbit controls while active VR/phone camera stream coordinates are being synced. Manual camera controls on the spectator page automatically re-enable if streaming packets stop for more than 3 seconds.
+```bash
+# Navigate to the project root and create the models directory
+mkdir models
+cd models
+
+# Clone CatVTON
+git clone https://github.com/Zheng-Chong/CatVTON.git
+
+# Clone LHM++
+git clone https://github.com/Damo-XR-Lab/LHM-plusplus.git
+```
+*Alternatively, if these repositories are already cloned elsewhere on the compute machine, define the environment variables CATVTON_ROOT and LHM_ROOT pointing to their absolute directory locations.*
+
+---
+
+## 6. Setup Options & Step-by-Step Setup Guides
+
+Users can configure and deploy the system via three primary routes depending on their hardware availability.
+
+---
+
+### Route 1: Single-Machine Setup (All services running on one system with an NVIDIA GPU)
+
+This route runs the Frontend, CPU Backend gateway, and GPU Compute Server on the same local GPU-enabled PC.
+
+#### Option A: Running natively via Python Virtual Environments
+1. **Prepare SMPL Templates:** Ensure the MPI neutral body file basicModel_neutral_lbs_10_207_0_v1.0.0.pkl is saved as SMPL_NEUTRAL.pkl in the user's home folder under ~/.cache/4DHumans/data/smpl/ (see Section 3).
+2. **Install Environments & Dependencies:** Run the master setup script from the project root:
+   ```powershell
+   python setup_project.py
+   ```
+   * Select "y" when prompted to configure the local GPU virtual environment.
+   * Select the appropriate CUDA version corresponding to the system's GPU drivers (CUDA 11.8 or CUDA 12.1).
+   * Select "y" when prompted to pre-download the model weights to cache them before runtime.
+3. **Start the Frontend Web Server (Port 8080):**
+   ```powershell
+   python -m http.server 8080 --directory frontend
+   ```
+4. **Start the CPU Backend Gateway (Port 8000):**
+   * **On Windows**:
+     ```powershell
+     cd Backend
+     .venv\Scripts\activate
+     uvicorn main:app --reload --host 0.0.0.0 --port 8000
+     ```
+   * **On Linux/macOS**:
+     ```bash
+     cd Backend
+     source .venv/bin/activate
+     uvicorn main:app --reload --host 0.0.0.0 --port 8000
+     ```
+5. **Start the GPU Compute Server (Port 8000 on GPU host, internally remapped):**
+   * **On Windows**:
+     ```powershell
+     cd gpu-server
+     .venv\Scripts\activate
+     python main.py
+     ```
+   * **On Linux/macOS**:
+     ```bash
+     cd gpu-server
+     source .venv/bin/activate
+     python main.py
+     ```
+6. **Open and Use:**
+   * Open http://localhost:8080 in a web browser.
+   * Navigate to settings and ensure the GPU Server URL matches http://localhost:8000 (or the local IP address).
+
+#### Option B: Running via Docker Compose
+1. **Verify Prerequisites:** Ensure Docker Desktop is running. 
+   * *If running on Windows (Docker Desktop + WSL2 backend), WSL2 will automatically pass the local GPU VRAM to the container. Installing the NVIDIA Container Toolkit is not required.*
+   * *If running on Linux, ensure the NVIDIA Container Toolkit is installed.*
+2. **Build and Launch the Containers:** Run the following command from the project root:
+   ```powershell
+   docker-compose up --build -d
+   ```
+3. **Monitor the GPU Compute Logs:**
+   ```powershell
+   docker-compose logs -f gpu-compute
+   ```
+4. **Access the Application:**
+   * Frontend: Accessible at http://localhost:8080
+   * Gateway API docs: Accessible at http://localhost:8000/docs
+   * *The containers handle routing automatically. The GPU service is exposed on host port 8001 and relayed inside the Docker network.*
+
+---
+
+### Route 2: Dual-Machine Setup (Laptop CPU Gateway + Separate GPU PC Compute Server)
+
+This route is suitable for inspecting or testing the interface on a lightweight laptop (like a Macbook or thin notebook without an NVIDIA GPU) while offloading the heavy rendering and neural network execution to a separate GPU PC on the same local network (LAN).
+
+#### Option A: Running natively via Python Virtual Environments
+1. **On the Laptop (CPU Host):**
+   * Run the master setup script:
+     ```powershell
+     python setup_project.py
+     ```
+     *(Select "N" when prompted to set up the GPU virtual environment, as the laptop won't run GPU tasks).*
+   * Start the Frontend Web Server:
+     ```powershell
+     python -m http.server 8080 --directory frontend
+     ```
+   * Start the CPU Backend Gateway:
+     * **On Windows**:
+       ```powershell
+       cd Backend
+       .venv\Scripts\activate
+       uvicorn main:app --reload --host 0.0.0.0 --port 8000
+       ```
+     * **On Linux/macOS**:
+       ```bash
+       cd Backend
+       source .venv/bin/activate
+       uvicorn main:app --reload --host 0.0.0.0 --port 8000
+       ```
+2. **On the GPU PC (Compute Server):**
+   * Copy the gpu-server folder to the GPU PC.
+   * Set up the GPU virtual environment using the setup script:
+     ```powershell
+     python setup_project.py
+     ```
+     *(Select "y" to install GPU virtualenv and pre-download the model weights via setup_models.py)*.
+   * Start the GPU Server:
+     * **On Windows**:
+       ```powershell
+       cd gpu-server
+       .venv\Scripts\activate
+       python main.py
+       ```
+     * **On Linux/macOS**:
+       ```bash
+       cd gpu-server
+       source .venv/bin/activate
+       python main.py
+       ```
+3. **Link them together:**
+   * Find the local LAN IP address of the GPU PC (e.g., 192.168.1.50 on Windows by running ipconfig or on Linux/macOS via ifconfig).
+   * On the laptop, open http://localhost:8080 in the browser.
+   * Click the settings gear on the landing page and paste the GPU PC's IP and port into the GPU Server URL input:
+     http://192.168.1.50:8000
+   * Click Save Settings. The laptop will now forward all mesh generation, segmentation, and try-on requests to the GPU PC.
+
+#### Option B: Running via Docker
+1. **On the Laptop (Frontend & Backend):**
+   * Open docker-compose.yml and comment out or remove the gpu-compute service declaration.
+   * Run Docker Compose to build and start only the frontend and backend CPU containers:
+     ```powershell
+     docker-compose up --build -d
+     ```
+     *(This takes up only ~550 MB of space on the laptop).*
+2. **On the GPU PC (Inference Server):**
+   * Clone the codebase and navigate to the gpu-server folder.
+   * Build only the GPU Docker image:
+     ```bash
+     docker build -t vr-gpu-server .
+     ```
+   * Launch the container with GPU access enabled and port 8000 exposed:
+     ```powershell
+     docker run -d --gpus all --name vr-gpu-server -p 8000:8000 --restart always vr-gpu-server
+     ```
+3. **Link them together:**
+   * Open the frontend on the laptop (http://localhost:8080).
+   * Click settings and enter the GPU PC's local network IP: http://<gpu-pc-ip>:8000
+
+---
+
+### Route 3: Hybrid Remote GPU Setup (Laptop Local + Cloud GPU via Google Colab / Kaggle)
+
+This route is suitable when a local NVIDIA GPU is unavailable, allowing the heavy rendering models to run on cloud GPU servers (Google Colab or Kaggle).
+
+1. **On the Laptop:**
+   * Run the master setup script:
+     ```powershell
+     python setup_project.py
+     ```
+     *(Select "N" for local GPU setup).*
+   * Start the Frontend Web Server:
+     ```powershell
+     python -m http.server 8080 --directory frontend
+     ```
+   * Start the CPU Backend Gateway:
+     * **On Windows**:
+       ```powershell
+       cd Backend
+       .venv\Scripts\activate
+       uvicorn main:app --reload --host 0.0.0.0 --port 8000
+       ```
+     * **On Linux/macOS**:
+       ```bash
+       cd Backend
+       source .venv/bin/activate
+       uvicorn main:app --reload --host 0.0.0.0 --port 8000
+       ```
+2. **In the Cloud (Google Colab / Kaggle):**
+   * Upload the [run_colab_gpu.ipynb](run_colab_gpu.ipynb) notebook to Google Colab.
+   * Select a T4 GPU runtime (or any higher GPU) under Runtime > Change runtime type.
+   * Paste the Ngrok Auth Token (get one for free at dashboard.ngrok.com) in Cell 2.
+   * Run all cells. This will clone the repository, install CUDA PyTorch, compile packages, download weights, launch the GPU server, and establish a secure tunnel.
+   * Copy the public URL generated by ngrok (e.g., https://xxxx.ngrok-free.app).
+3. **Link them together:**
+   * Open the web app on the laptop (http://localhost:8080).
+   * Click the settings gear on the landing page, paste the ngrok URL into the GPU Server URL box, and click Save Settings.
+   * All CatVTON try-ons and 4D-Humans reconstructions will now run in the Colab cloud and return results instantly to the laptop.
+
+---
+
+## 7. Credits & License
+
+### Contributors
+This project was developed during a summer internship at **BISAG-N** (Bhaskaracharya National Institute for Space Applications and Geo-informatics) by:
+- **Anant Jain**
+- **Karmveer Kumar**
+- **Vishvendra**
+
+### License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## 8. Troubleshooting & Issue Tracking
+If any issues, bugs, or runtime problems occur during setup or execution, users are encouraged to open an issue directly in the repository's issue tracker, or submit a Pull Request with bug fixes, enhancements, or documentation updates.
