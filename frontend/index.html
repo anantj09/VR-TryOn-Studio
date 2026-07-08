@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-  <title>4DHumans WebXR - 3D Digital Twin Viewer</title>
-  <meta name="description" content="Immersive WebXR viewer for 4D-Humans reconstructed human body meshes. Inspect, rotate, and scale virtual 3D twins directly in VR.">
-  
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <title>VR Viewports</title>
+  <meta name="description"
+    content="Immersive 3D Try-On Studio. Inspect and reconstruct personalized virtual 3D twins with WebXR support.">
+
   <!-- Importmap to resolve bare module specifiers for Three.js and its addons -->
   <script type="importmap">
     {
@@ -15,31 +18,66 @@
       }
     }
   </script>
-  
+
   <!-- Cyberpunk Stylesheet -->
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+
+<body class="theme-dark">
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem('app-theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.body.classList.remove('theme-dark');
+      }
+    })();
+  </script>
 
   <!-- Portal Entry Landing Page -->
   <div id="portal-overlay" class="portal-overlay">
+    <div class="portal-theme-toggle" style="position: absolute; top: 24px; right: 24px; z-index: 1001;">
+      <button id="portal-theme-toggle-btn" class="btn btn-secondary interactive"
+        style="padding: 0; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"
+        aria-label="Toggle Theme">
+        <span id="portal-theme-icon" style="display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <circle cx="12" cy="12" r="4"></circle>
+            <line x1="12" y1="2" x2="12" y2="4"></line>
+            <line x1="12" y1="20" x2="12" y2="22"></line>
+            <line x1="4.93" y1="4.93" x2="6.34" y2="6.34"></line>
+            <line x1="17.66" y1="17.66" x2="19.07" y2="19.07"></line>
+            <line x1="2" y1="12" x2="4" y2="12"></line>
+            <line x1="20" y1="12" x2="22" y2="12"></line>
+            <line x1="6.34" y1="17.66" x2="4.93" y2="19.07"></line>
+            <line x1="19.07" y1="4.93" x2="17.66" y2="6.34"></line>
+          </svg>
+        </span>
+      </button>
+    </div>
     <div class="portal-scanner-bg" aria-hidden="true"></div>
     <div class="portal-content">
-      <h1 class="portal-title">METAVERSE VIEWPORTS</h1>
+      <h1 class="portal-title">VR Viewports</h1>
       <p class="portal-subtitle">Select your entry point to inspect 3D assets</p>
-      
+
       <div class="portal-cards">
         <div id="portal-card-twin" class="portal-card interactive" role="button" tabindex="0">
-          <div class="portal-card-icon" aria-hidden="true">✦</div>
-          <h2>Digital Twin Creator</h2>
-          <p>Reconstruct your personalized 3D avatar from a single-view portrait photograph, complete with physical sizing metrics.</p>
+          <div class="portal-card-icon" aria-hidden="true">
+            <img src="data/assets/digital-twin.png" class="portal-icon-img" alt="Digital Twin Icon">
+          </div>
+          <h2>3D Try-On Studio</h2>
+          <p>Reconstruct your personalized 3D avatar from a single-view portrait photograph and virtually try-on
+            clothing items.</p>
           <span class="portal-card-btn">Enter Mode</span>
         </div>
-        
+
         <div id="portal-card-premade" class="portal-card interactive" role="button" tabindex="0">
-          <div class="portal-card-icon" aria-hidden="true">📦</div>
+          <div class="portal-card-icon" aria-hidden="true">
+            <img src="data/assets/premade-assets.png" class="portal-icon-img" alt="Premade Assets Icon">
+          </div>
           <h2>Premade Showcase</h2>
-          <p>Inspect, rotate, and scale our high-fidelity catalog of preloaded industrial, domestic, and athletic 3D objects.</p>
+          <p>Inspect, rotate, and scale our high-fidelity catalog of preloaded industrial, domestic, and athletic 3D
+            objects.</p>
           <span class="portal-card-btn">Browse Assets</span>
         </div>
       </div>
@@ -49,113 +87,354 @@
   <!-- Three.js Canvas Container -->
   <main id="canvas-container" aria-label="3D Viewport"></main>
 
-  <!-- Drag-and-Drop Model Upload Container -->
-  <div id="upload-container" class="upload-container" style="display: none;">
-    <div class="scanner-background" aria-hidden="true"></div>
-    <label id="upload-box" class="upload-box interactive" for="file-input" tabindex="0" role="button" aria-label="Upload 3D human model">
-      <div class="upload-icon" aria-hidden="true">✦</div>
-      <h3>Reconstruct 3D Digital Twin</h3>
-      <p>Drag & drop a portrait image (JPG, PNG) here, or click to browse</p>
-      <div style="margin-top: 16px;">
-        <span style="color: var(--text-muted); font-size: 12px; display: block; margin-bottom: 8px;">— OR —</span>
-        <button id="load-sample-btn" class="btn btn-secondary interactive">Load Demo Mesh</button>
+  <!-- Drag-and-Drop Model & Try-on Garment Wrapper Container -->
+  <!-- Drag-and-Drop Model & Try-on Garment Wrapper Container -->
+  <div id="upload-container" class="upload-container"
+    style="display: none; width: auto; max-width: 90vw; flex-direction: column; gap: 20px; align-items: center; justify-content: center; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5;">
+    <div class="scanner-background" aria-hidden="true" style="width: 540px; height: 540px;"></div>
+
+    <!-- Horizontal wrapper for both selectors -->
+    <div
+      style="display: flex; flex-direction: row; gap: 20px; align-items: stretch; justify-content: center; flex-wrap: wrap;">
+      <!-- Left Panel: Portrait Selection Box -->
+      <div id="portrait-selector-wrapper" class="panel selector-wrapper interactive">
+        <div id="portrait-preview-empty"
+          style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+          <div class="upload-icon"
+            style="margin-bottom: 12px; display: flex; align-items: center; justify-content: center;">
+            <img src="data/assets/potrait.png" class="upload-icon-img" alt="Portrait Icon">
+          </div>
+          <h3 style="font-family: var(--font-title); font-size: 16px; margin-bottom: 6px;">Select Portrait Photo</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">Upload a
+            front-facing portrait photograph to use as your model base</p>
+          <div style="display: flex; gap: 8px; justify-content: center; width: 100%; margin-top: 10px;">
+            <label class="btn btn-secondary interactive" for="camera-input"
+              style="cursor: pointer; padding: 8px 12px; font-size: 11px; flex: 1; text-align: center; justify-content: center;">Take
+              Photo</label>
+            <label class="btn btn-secondary interactive" for="file-input"
+              style="cursor: pointer; padding: 8px 12px; font-size: 11px; flex: 1; text-align: center; justify-content: center;">Browse
+              Photo</label>
+          </div>
+        </div>
+        <div id="portrait-preview-selected"
+          style="display: none; text-align: center; width: 100%; height: 100%; flex-direction: column; justify-content: space-between;">
+          <div>
+            <h4 id="selected-portrait-name"
+              style="font-family: var(--font-title); font-size: 14px; color: var(--accent-color); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; letter-spacing: 0.5px;">
+              Portrait Selected</h4>
+            <div
+              style="width: 130px; height: 170px; margin: 0 auto; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); overflow: hidden; background: var(--input-bg); display: flex; align-items: center; justify-content: center;">
+              <img id="selected-portrait-img" src="" alt="Selected Portrait"
+                style="max-width: 100%; max-height: 100%; object-fit: contain; padding: 4px;">
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: center; width: 100%; margin-top: 12px;">
+            <label id="change-portrait-label" class="btn btn-secondary interactive" for="file-input"
+              style="cursor: pointer; flex: 1; padding: 8px 12px; font-size: 11px; text-align: center; justify-content: center;">Change</label>
+            <button id="remove-portrait-btn" class="btn interactive"
+              style="flex: 1; background: rgba(255,0,85,0.1); border: 1px solid rgba(255,0,85,0.3); color: #ff0055; padding: 8px 12px; font-size: 11px; border-radius: var(--border-radius-sm); cursor: pointer;">Remove</button>
+          </div>
+        </div>
+        <input type="file" id="file-input" accept="image/*" aria-hidden="true" style="display: none;">
+        <input type="file" id="camera-input" accept="image/*" capture="user" aria-hidden="true" style="display: none;">
       </div>
-    </label>
-    <input type="file" id="file-input" accept="image/*" aria-hidden="true">
+
+      <!-- Right Panel: Selected Garment Try-on Box -->
+      <div id="selected-garment-wrapper" class="panel selector-wrapper interactive">
+        <div id="garment-preview-empty"
+          style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+          <div class="upload-icon"
+            style="margin-bottom: 12px; display: flex; align-items: center; justify-content: center;">
+            <img src="data/assets/garment.png" class="upload-icon-img" alt="Garment Icon">
+          </div>
+          <h3 style="font-family: var(--font-title); font-size: 16px; margin-bottom: 6px;">Select Try-On Garment</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">Optional: Choose
+            a clothing item to warp onto your portrait before 3D reconstruction</p>
+          <button id="open-catalog-btn" class="btn btn-secondary interactive" style="width: 100%;">Open Clothing
+            Catalog</button>
+        </div>
+        <div id="garment-preview-selected"
+          style="display: none; text-align: center; width: 100%; height: 100%; flex-direction: column; justify-content: space-between;">
+          <div>
+            <h4 id="selected-garment-name"
+              style="font-family: var(--font-title); font-size: 14px; color: var(--accent-color); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; letter-spacing: 0.5px;">
+              Garment Selected</h4>
+            <div
+              style="width: 130px; height: 170px; margin: 0 auto; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); overflow: hidden; background: var(--input-bg); display: flex; align-items: center; justify-content: center;">
+              <img id="selected-garment-img" src="" alt="Garment Preview"
+                style="max-width: 100%; max-height: 100%; object-fit: contain; padding: 8px;">
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: center; width: 100%; margin-top: 12px;">
+            <button id="change-garment-btn" class="btn btn-secondary interactive"
+              style="flex: 1; padding: 8px 12px; font-size: 11px;">Change</button>
+            <button id="remove-garment-btn" class="btn interactive"
+              style="flex: 1; background: rgba(255,0,85,0.1); border: 1px solid rgba(255,0,85,0.3); color: #ff0055; padding: 8px 12px; font-size: 11px; border-radius: var(--border-radius-sm); cursor: pointer;">Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Trigger Button -->
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+      <button id="run-tryon-btn" class="btn interactive" style="width: 340px;" disabled>Run Virtual Try-On</button>
+      <button id="load-sample-btn-new" class="btn btn-secondary interactive"
+        style="padding: 6px 16px; font-size: 11px;">Load Demo Mesh Fallback</button>
+      
+      <!-- History Access Shortcuts -->
+      <div style="margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px; display: flex; gap: 10px; width: 340px; justify-content: center;">
+        <button id="shortcut-tryon-history-btn" class="btn btn-secondary interactive" style="flex: 1; padding: 8px 12px; font-size: 11px;">Saved Try-Ons</button>
+        <button id="shortcut-mesh-history-btn" class="btn btn-secondary interactive" style="flex: 1; padding: 8px 12px; font-size: 11px;">Saved Avatars</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Try-On Result Overlay -->
+  <div id="tryon-fullscreen-overlay" class="portal-overlay" style="display: none;">
+    <div class="portal-theme-toggle" style="position: absolute; top: 24px; right: 24px; z-index: 1001;">
+      <button id="tryon-theme-toggle-btn" class="btn btn-secondary interactive"
+        style="padding: 0; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"
+        aria-label="Toggle Theme">
+        <span id="tryon-theme-icon" style="display: flex; align-items: center; justify-content: center;"></span>
+      </button>
+    </div>
+    <div class="portal-scanner-bg" aria-hidden="true"
+      style="width: 60vw; height: 60vw; max-width: 800px; max-height: 800px;"></div>
+
+    <!-- Left column: The big try-on image output -->
+    <div class="tryon-preview-box"
+      style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; max-height: 80vh; max-width: 600px; min-width: 320px; min-height: 400px; overflow: hidden; position: relative;">
+      <span id="tryon-fullscreen-placeholder" style="font-family: var(--font-title); font-size: 13px; color: var(--text-muted); font-style: italic;">No Image Selected</span>
+      <img id="tryon-fullscreen-img" src="" alt="Virtual Try-On Result"
+        style="max-width: 100%; max-height: 80vh; object-fit: contain; display: none;">
+    </div>
+
+    <!-- Right column: Sizing info and action buttons -->
+    <div class="panel interactive"
+      style="width: 380px; display: flex; flex-direction: column; align-items: stretch; padding: 32px; gap: 24px;">
+      <div style="text-align: center;">
+        <span id="tryon-success-label"
+          style="color: var(--success-color); font-family: var(--font-title); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; display: block;">Try-on
+          Completed</span>
+        <h2
+          style="font-family: var(--font-title); font-size: 24px; color: var(--text-color); margin-top: 8px; margin-bottom: 0;">
+          Review Your Look</h2>
+      </div>
+
+      <div
+        style="border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 16px 0; text-align: left;">
+        <h4
+          style="font-family: var(--font-title); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color); margin-bottom: 8px; margin-top: 0;">
+          Next Step</h4>
+        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 0;">Proceed to generate
+          your interactive 3D digital twin avatar from this tried-on image.</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="tryon-generate-4d-btn" class="btn interactive" style="width: 100%; padding: 12px;">Generate
+          Mannequin (4D-Humans)</button>
+        <button id="tryon-generate-lhm-btn" class="btn interactive" style="width: 100%; padding: 12px;">Generate Splat
+          (LHM++)</button>
+        <button id="tryon-back-btn" class="btn btn-secondary interactive"
+          style="width: 100%; padding: 8px; margin-top: 4px;">✕ Try Another Style</button>
+      </div>
+      <!-- Try-On History Trigger Button -->
+      <div id="tryon-history-trigger-wrapper" style="border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left;">
+        <h4 style="font-family: var(--font-title); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color); margin-top: 0; margin-bottom: 4px;">Saved Try-On Images</h4>
+        <button id="open-tryon-history-btn" class="btn btn-secondary interactive" style="width: 100%; padding: 10px; font-size: 12px;">Select From Saved Try-Ons</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Super Resolution Selection Modal -->
+  <div id="sr-modal" class="portal-overlay" style="display: none; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10002; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+    <div class="panel" style="width: 90%; max-width: 400px; padding: 28px; text-align: center; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border-radius: var(--border-radius-lg); border: 1px solid var(--border-color); background: var(--portal-card-bg); box-sizing: border-box;">
+      <div>
+        <h3 style="font-family: var(--font-title); font-size: 20px; margin-bottom: 8px; margin-top: 0;">Select Image Quality</h3>
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.4; margin-bottom: 0;">Choose whether to enhance fabric details and face quality using AI Super-Resolution models.</p>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+        <!-- Option 1: Super Resolution -->
+        <button id="sr-yes-btn" class="interactive" style="width: 100%; text-align: left; padding: 16px; border-radius: var(--border-radius-md); border: 1px solid var(--accent-color); background: rgba(99, 102, 241, 0.08); cursor: pointer; display: flex; align-items: center; gap: 16px; transition: all 0.2s ease; outline: none; font-family: inherit;">
+          <img src="data/assets/image-enhance.png" alt="Enhance Icon" style="width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; filter: var(--icon-filter);">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <strong style="font-size: 14px; color: var(--accent-color);">AI Super Resolution (Recommended)</strong>
+            <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">Upscales clothing textures and restores facial features. Adds ~2 seconds.</span>
+          </div>
+        </button>
+        
+        <!-- Option 2: Standard Resolution -->
+        <button id="sr-no-btn" class="interactive" style="width: 100%; text-align: left; padding: 16px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); background: var(--input-bg); cursor: pointer; display: flex; align-items: center; gap: 16px; transition: all 0.2s ease; outline: none; font-family: inherit;">
+          <img src="data/assets/image-standard.jpg" alt="Standard Icon" style="width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; filter: var(--icon-filter);">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <strong style="font-size: 14px; color: var(--text-color);">Standard Quality</strong>
+            <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">Generates the image immediately without upscaling. Faster processing.</span>
+          </div>
+        </button>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; width: 100%; margin-top: 4px;">
+        <button id="sr-cancel-btn" class="btn btn-secondary interactive" style="padding: 8px 16px; font-size: 12px; width: auto; cursor: pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Try-On History Selection Modal -->
+  <div id="tryon-history-modal" class="portal-overlay" style="display: none; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10003; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+    <div class="panel" style="width: 90%; max-width: 440px; padding: 24px; text-align: center; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border-radius: var(--border-radius-lg); border: 1px solid var(--border-color); background: var(--portal-card-bg); box-sizing: border-box; max-height: 80vh;">
+      <h4 style="font-family: var(--font-title); font-size: 13px; margin-bottom: 4px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 0; text-align: left; width: 100%;">
+        <span>Saved Try-Ons</span>
+        <span id="tryon-history-close-btn" style="cursor: pointer; font-size: 14px; color: var(--text-muted); font-weight: normal; padding: 4px;">✕</span>
+      </h4>
+      <div id="tryon-history-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow-y: auto; max-height: 50vh; padding-right: 4px; box-sizing: border-box; width: 100%;">
+        <!-- Items will be dynamically loaded here -->
+      </div>
+    </div>
   </div>
 
   <!-- Premade Assets Showcase Sidebar -->
   <aside id="premade-assets-panel" class="panel premade-assets-panel interactive" style="display: none;">
-    <div class="panel-header" style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
-      <h3 style="margin: 0; font-family: var(--font-title); font-size: 15px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px;">Premade Assets</h3>
-      <span id="asset-count-badge" class="badge" style="font-size: 11px; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--accent-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); font-weight: bold; font-family: monospace;">0 Assets</span>
+    <div class="panel-header"
+      style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+      <h3
+        style="margin: 0; font-family: var(--font-title); font-size: 15px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px;">
+        Premade Assets</h3>
+      <span id="asset-count-badge" class="badge"
+        style="font-size: 11px; background: var(--card-active-bg); border: 1px solid var(--accent-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); font-weight: bold; font-family: monospace;">0
+        Assets</span>
     </div>
     <div class="search-box-wrapper" style="margin-bottom: 12px;">
-      <input type="text" id="premade-search" placeholder="Search assets (e.g. chair, valve)..." style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; box-sizing: border-box; outline: none;">
+      <input type="text" id="premade-search" placeholder="Search assets (e.g. chair, valve)..."
+        style="width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-size: 12px; box-sizing: border-box; outline: none;">
     </div>
-    <div id="premade-list" class="premade-list" style="max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 4px;">
+    <div id="premade-list" class="premade-list"
+      style="max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 4px;">
       <!-- Dynamically populated cards go here -->
     </div>
   </aside>
 
   <!-- Floating HUD Panel Overlay -->
   <div class="hud-overlay">
-    
+
     <!-- Top Header Bar -->
     <header class="interactive">
       <div class="logo">
-        <h1 id="logo-title">4D-HUMANS VR</h1>
+        <h1 id="logo-title">3D Try-On Studio</h1>
         <span id="logo-subtitle">Immersive Mesh Inspector</span>
       </div>
       <div class="vr-controls" style="display: flex; gap: 8px; align-items: center;">
-        <button id="back-portal-btn" class="btn btn-secondary interactive" style="display: none; padding: 0 16px; height: 44px; font-family: var(--font-title); font-size: 11px; letter-spacing: 0.5px; border-radius: 8px; border: 1px dashed var(--border-color);">
-          ← PORTAL
+        <button id="back-portal-btn" class="btn btn-secondary interactive"
+          style="display: none; padding: 0; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"
+          aria-label="Go to Portal">
+          <span style="display: flex; align-items: center; justify-content: center;">
+            <img src="data/assets/home.jpg" class="theme-icon-img"
+              style="width: 20px; height: 20px; object-fit: contain;" alt="Home icon">
+          </span>
         </button>
-        <button id="settings-btn" class="btn btn-secondary" style="display: none; padding: 10px 14px; border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center;" aria-label="Configure Colab Server">
-          <span style="font-size: 18px; line-height: 1;">⚙️</span>
+        <button id="theme-toggle-btn" class="btn btn-secondary interactive"
+          style="padding: 0; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"
+          aria-label="Toggle Theme">
+          <span id="theme-icon" style="display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="12" y1="2" x2="12" y2="4"></line>
+              <line x1="12" y1="20" x2="12" y2="22"></line>
+              <line x1="4.93" y1="4.93" x2="6.34" y2="6.34"></line>
+              <line x1="17.66" y1="17.66" x2="19.07" y2="19.07"></line>
+              <line x1="2" y1="12" x2="4" y2="12"></line>
+              <line x1="20" y1="12" x2="22" y2="12"></line>
+              <line x1="6.34" y1="17.66" x2="4.93" y2="19.07"></line>
+              <line x1="19.07" y1="4.93" x2="17.66" y2="6.34"></line>
+            </svg>
+          </span>
         </button>
-        <button id="enter-vr-btn" class="btn btn-secondary" disabled>
-          <span class="vr-icon">🕶️</span> ENTER VR
+        <button id="settings-btn" class="btn btn-secondary interactive"
+          style="display: none; padding: 0; border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center;"
+          aria-label="Configure Colab Server">
+          <span style="display: flex; align-items: center; justify-content: center;">
+            <img src="data/assets/settings.png" class="theme-icon-img"
+              style="width: 20px; height: 20px; object-fit: contain;" alt="Settings icon">
+          </span>
+        </button>
+        <button id="enter-vr-btn" class="btn" disabled
+          style="background: #000000; color: #ffffff; border: 1px solid #333333; height: 44px; padding: 0 16px; font-weight: bold; letter-spacing: 0.5px;">
+          VR
         </button>
       </div>
     </header>
 
     <!-- Settings Panel (Floating/Collapsible) -->
-    <section id="settings-panel" class="panel interactive" style="display: none; position: fixed; bottom: 120px; left: 20px; width: 340px; z-index: 100;">
-      <h4 style="font-family: var(--font-title); font-size: 15px; margin-bottom: 12px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
+    <section id="settings-panel" class="panel interactive"
+      style="display: none; position: fixed; bottom: 120px; left: 20px; width: 340px; z-index: 100;">
+      <h4
+        style="font-family: var(--font-title); font-size: 15px; margin-bottom: 12px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
         <span>Server Settings</span>
-        <span id="settings-close-btn" style="cursor: pointer; font-size: 14px; color: var(--text-muted); font-weight: normal; padding: 4px;">✕</span>
+        <span id="settings-close-btn"
+          style="cursor: pointer; font-size: 14px; color: var(--text-muted); font-weight: normal; padding: 4px;">✕</span>
       </h4>
-      <div>
-        <label for="colab-url-input" style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Google Colab Tunnel URL</label>
-        <input type="url" id="colab-url-input" placeholder="https://xxxx.ngrok-free.app" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: #fff; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; outline: none;">
-        <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.4; margin-bottom: 0;">
-          Paste your public Ngrok URL from Google Colab. If active, high-fidelity visual generation runs on TRELLIS (Colab GPU) while body sizing runs locally.
-        </p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label for="colab-url-input"
+            style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Google
+            Colab Tunnel URL</label>
+          <input type="url" id="colab-url-input" placeholder="https://xxxx.ngrok-free.app"
+            style="width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; outline: none;">
+          <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; margin-bottom: 0;">
+            Paste Ngrok URL from Google Colab. Runs heavy visual 3D generation on Colab GPU.
+          </p>
+        </div>
+        <div>
+          <label for="gpu-url-input"
+            style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">GPU
+            Compute Server URL</label>
+          <input type="url" id="gpu-url-input" placeholder="http://192.168.x.x:8000"
+            style="width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; outline: none;">
+          <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; margin-bottom: 0;">
+            IP address of your GPU PC. Enables remote CatVTON virtual try-on on portrait images before 3D mapping.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mesh History Panel (Floating/Collapsible) -->
+    <section id="mesh-history-panel" class="panel interactive"
+      style="display: none; position: fixed; top: 100px; right: 20px; width: 320px; z-index: 100; max-height: 400px; box-sizing: border-box; flex-direction: column; gap: 12px; border: 1px solid var(--border-color); background: var(--portal-card-bg);">
+      <h4
+        style="font-family: var(--font-title); font-size: 13px; margin-bottom: 4px; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
+        <span>Previous Avatars</span>
+        <span id="mesh-history-close-btn" style="cursor: pointer; font-size: 14px; color: var(--text-muted); font-weight: normal; padding: 4px;">✕</span>
+      </h4>
+      <div id="mesh-history-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 320px; padding-right: 4px;">
+        <!-- Items will be dynamically loaded here -->
       </div>
     </section>
 
     <!-- Bottom HUD Info Bar -->
     <div class="controls-bottom">
-      
       <!-- Status Panel -->
       <section class="panel status-panel interactive" aria-labelledby="status-title">
         <h4 id="status-title" style="display:none">System Status</h4>
-        <div class="status-indicator">
-          <span id="status-text">Initializing...</span>
-          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="status-indicator">
+            <span id="status-text">Initializing...</span>
+            <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+          </div>
+          <span id="status-close-btn" class="mobile-close-btn" style="cursor: pointer; font-size: 14px; margin-left: 12px; display: none; padding: 4px;">✕</span>
         </div>
-        <div id="model-info-text" class="model-info">No model active</div>
       </section>
 
-      <!-- Measurements Panel -->
-      <section id="measurements-panel" class="panel measurements-panel interactive" style="display: none;">
-        <h4>AI Sizing Measurements</h4>
-        <div class="measurements-grid">
-          <div class="measurement-item">
-            <span class="value" id="val-height">—</span>
-            <span class="label">Height</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-chest">—</span>
-            <span class="label">Chest</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-waist">—</span>
-            <span class="label">Waist</span>
-          </div>
-          <div class="measurement-item">
-            <span class="value" id="val-hip">—</span>
-            <span class="label">Hip</span>
-          </div>
-        </div>
-      </section>
 
       <!-- VR Instructions Panel (Collapsible) -->
-      <section id="instructions-panel" class="panel instructions-panel interactive collapsed" aria-labelledby="instructions-title">
-        <h4 id="instructions-title">
+      <section id="instructions-panel" class="panel instructions-panel interactive collapsed"
+        aria-labelledby="instructions-title">
+        <h4 id="instructions-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <span>Navigation Controls</span>
-          <span class="toggle-icon">▼</span>
+          <span style="display: flex; gap: 10px; align-items: center;">
+            <span id="instructions-close-btn" class="mobile-close-btn" style="cursor: pointer; font-size: 14px; display: none; padding: 4px;">✕</span>
+            <span class="toggle-icon">▼</span>
+          </span>
         </h4>
         <ul style="display: none;">
           <li>
@@ -189,8 +468,100 @@
 
   </div>
 
+  <!-- Virtual Dressing Room Try-On Catalog Modal -->
+  <div id="catalog-modal" class="catalog-modal-overlay" style="display: none;">
+    <div class="catalog-modal-container panel interactive">
+
+      <!-- Modal Header -->
+      <div class="catalog-modal-header"
+        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <div>
+          <h2
+            style="font-family: var(--font-title); font-size: 20px; font-weight: 700; background: var(--accent-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 10px var(--accent-glow); margin: 0; text-transform: uppercase; letter-spacing: 1px;">
+            Clothing Catalog</h2>
+          <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">Select a garment to
+            dynamically warp onto your portrait before 3D reconstruction</p>
+        </div>
+        <button id="catalog-close-btn" class="catalog-close-btn"
+          style="background: none; border: none; color: var(--text-muted); font-size: 28px; line-height: 1; cursor: pointer; padding: 0 6px; transition: color 0.2s ease;">&times;</button>
+      </div>
+
+      <!-- Filters & Search Toolbar -->
+      <div class="catalog-toolbar"
+        style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+        <div class="catalog-search-wrapper" style="flex: 1; min-width: 200px;">
+          <input type="text" id="catalog-search" placeholder="Search garment (e.g. Roadster shirt, HRX)..."
+            style="width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); padding: 10px 14px; border-radius: 8px; font-size: 12px; box-sizing: border-box; outline: none;">
+        </div>
+        <div class="catalog-filter-group" style="display: flex; gap: 12px; align-items: center;">
+          <!-- Gender Filters -->
+          <div class="catalog-tab-filters" id="catalog-gender-filters"
+            style="display: flex; background: var(--input-bg); padding: 4px; border-radius: 8px; border: 1px solid var(--input-border);">
+            <button class="tab-btn active" data-gender="all"
+              style="background: none; border: none; color: var(--text-color); padding: 6px 12px; font-size: 11px; font-family: var(--font-title); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">All</button>
+            <button class="tab-btn" data-gender="men"
+              style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; font-size: 11px; font-family: var(--font-title); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">Men</button>
+            <button class="tab-btn" data-gender="women"
+              style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; font-size: 11px; font-family: var(--font-title); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">Women</button>
+          </div>
+          <!-- Category Selector -->
+          <select id="catalog-category-filter" class="catalog-select-filter"
+            style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-size: 12px; outline: none; cursor: pointer; height: 38px;">
+            <option value="all">All Categories</option>
+            <option value="T-Shirt">T-Shirts</option>
+            <option value="Shirt">Shirts</option>
+            <option value="Top">Tops</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Catalog Grid (Dynamically Populated) -->
+      <div class="catalog-grid-wrapper"
+        style="flex: 1; overflow-y: auto; max-height: 400px; padding-right: 6px; margin-bottom: 16px;">
+        <div id="catalog-grid" class="catalog-grid"
+          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px;">
+          <!-- Item Cards go here dynamically -->
+        </div>
+      </div>
+
+      <!-- Modal Footer & Pagination -->
+      <div class="catalog-modal-footer"
+        style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px; flex-wrap: wrap; gap: 12px;">
+        <div class="catalog-pagination" style="display: flex; gap: 8px; align-items: center;">
+          <button id="catalog-prev-page" class="btn btn-secondary"
+            style="padding: 6px 12px; font-size: 11px; border-radius: 6px; cursor: pointer;">&larr; Prev</button>
+          <span id="catalog-page-info"
+            style="font-family: monospace; font-size: 11px; color: var(--text-muted); width: 100px; text-align: center;">Page
+            1 of 1</span>
+          <button id="catalog-next-page" class="btn btn-secondary"
+            style="padding: 6px 12px; font-size: 11px; border-radius: 6px; cursor: pointer;">Next &rarr;</button>
+        </div>
+        <div id="catalog-selection-info" class="catalog-selection-info"
+          style="font-size: 12px; color: var(--text-muted); font-style: italic; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          No garment selected
+        </div>
+        <button id="catalog-confirm-btn" class="btn"
+          style="padding: 10px 20px; font-size: 12px; font-family: var(--font-title); font-weight: bold; border-radius: 8px; cursor: pointer; letter-spacing: 0.5px;"
+          disabled>Confirm Selection</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating Corner Buttons for Mobile/Desktop HUD -->
+  <button id="floating-avatars-btn" class="btn btn-secondary interactive"
+    style="display: none; position: fixed; bottom: 20px; left: 20px; z-index: 10005; padding: 0; border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center; box-shadow: var(--card-shadow); border: 1px solid var(--border-color);">
+    <img src="data/assets/saved-avatar.jpg" class="theme-icon-img" style="width: 22px; height: 22px; object-fit: contain;" alt="Saved Avatars">
+  </button>
+
+  <button id="floating-navigation-btn" class="btn btn-secondary interactive"
+    style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 10005; padding: 0; border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center; box-shadow: var(--card-shadow); border: 1px solid var(--border-color);">
+    <img src="data/assets/navigation.png" class="theme-icon-img" style="width: 22px; height: 22px; object-fit: contain;" alt="Navigation Controls">
+  </button>
+
   <!-- Three.js App Entry Point -->
   <script type="module" src="viewer.js"></script>
 
 </body>
+
 </html>
