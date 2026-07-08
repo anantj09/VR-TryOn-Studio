@@ -1,45 +1,4 @@
 import sys
-import numpy as np
-# 1. NumPy compatibility for chumpy (older pickle files)
-np.bool = bool
-np.int = int
-np.float = float
-np.complex = complex
-np.object = object
-np.str = str
-np.unicode = str
-
-import torch
-if not hasattr(torch.load, '__monkeypatched__'):
-    original_load = torch.load
-    def safe_load(*args, **kwargs):
-        try:
-            return original_load(*args, **kwargs)
-        except Exception as e:
-            if kwargs.get('weights_only', True) is not False:
-                if len(args) > 0:
-                    f = args[0]
-                    if hasattr(f, 'seek') and callable(f.seek):
-                        try:
-                            f.seek(0)
-                        except Exception:
-                            pass
-                kwargs_copy = kwargs.copy()
-                kwargs_copy['weights_only'] = False
-                try:
-                    return original_load(*args, **kwargs_copy)
-                except Exception:
-                    pass
-            raise e
-    safe_load.__monkeypatched__ = True
-    torch.load = safe_load
-
-from omegaconf.dictconfig import DictConfig
-from omegaconf.listconfig import ListConfig
-try:
-    torch.serialization.add_safe_globals([DictConfig, ListConfig])
-except Exception:
-    pass
 
 from fastapi import FastAPI, Request, HTTPException as FastAPIHTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -168,8 +127,18 @@ app.include_router(api_router)
 
 # 4. Mount central static catalog directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.abspath(os.path.join(current_dir, "..", "data"))
-os.makedirs(data_dir, exist_ok=True)
+# Check if running in Docker (container root is /app with volume mapped at /app/data) or local development
+if os.path.basename(current_dir) == "app" or os.path.exists(os.path.join(current_dir, "data")):
+    data_dir = os.path.join(current_dir, "data")
+else:
+    data_dir = os.path.abspath(os.path.join(current_dir, "..", "data"))
+
+# Ensure essential data subdirectories exist so mounting static directories doesn't crash on start
+os.makedirs(os.path.join(data_dir, "dataset_processed"), exist_ok=True)
+os.makedirs(os.path.join(data_dir, "meshes"), exist_ok=True)
+os.makedirs(os.path.join(data_dir, "tryon_outputs"), exist_ok=True)
+
+app.mount("/static/clothing", StaticFiles(directory=os.path.join(data_dir, "dataset_processed")), name="clothing")
 app.mount("/static", StaticFiles(directory=data_dir), name="static")
 
 # 5. Global Exception Handlers
