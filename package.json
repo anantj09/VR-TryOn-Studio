@@ -1,0 +1,24 @@
+{
+  "name": "BISAG-project",
+  "version": "1.0.0",
+  "description": "An immersive, hardware-accelerated WebXR browser application integrated with a Python AI backend to reconstruct and inspect customized 3D human digital twins from single-view portrait images.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anantj09/BISAG.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/anantj09/BISAG/issues"
+  },
+  "homepage": "https://github.com/anantj09/BISAG#readme",
+  "dependencies": {
+    "@mkkellogg/gaussian-splats-3d": "^0.4.7"
+  }
+}
