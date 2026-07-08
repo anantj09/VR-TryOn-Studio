@@ -16,7 +16,9 @@ def get_clothing_catalog(
     Allows filtering by category and gender for Jetpack Compose UI.
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "clothing", "catalog.json"))
+    catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "dataset_processed", "catalog.json"))
+    if not os.path.exists(catalog_path):
+        catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "clothing", "catalog.json"))
     
     if not os.path.exists(catalog_path):
         # Fallback: return empty list if catalog.json hasn't been generated yet

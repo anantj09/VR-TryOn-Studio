@@ -5,7 +5,9 @@ const listeners = new Set();
 
 export function initWebSocket() {
     const wsHost = window.location.hostname || 'localhost';
-    const wsUrl = `ws://${wsHost}:8000/ws/stream`;
+    // Wrap IPv6 addresses in square brackets to form a valid WebSocket URL
+    const formattedHost = wsHost.includes(':') ? `[${wsHost}]` : wsHost;
+    const wsUrl = `ws://${formattedHost}:8000/ws/stream`;
     
     console.log(`Connecting to WebSocket: ${wsUrl}`);
     socket = new WebSocket(wsUrl);

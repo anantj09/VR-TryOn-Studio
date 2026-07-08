@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import List, Optional
 from schemas.catalog import ClothingItemSchema
-from api.routes.tryon import user_profiles_db, jobs_db
+from core.database import user_profiles_db, jobs_db
 import os
 import json
 
@@ -15,7 +15,9 @@ def get_personalized_recommendations(userId: str):
     Fallback: Serves the best 4 Men's items + the best 4 Women's items (total 8 items) for new profiles.
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "clothing", "catalog.json"))
+    catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "dataset_processed", "catalog.json"))
+    if not os.path.exists(catalog_path):
+        catalog_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "data", "clothing", "catalog.json"))
     
     if not os.path.exists(catalog_path):
         return []

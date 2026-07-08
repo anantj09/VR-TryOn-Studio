@@ -87,10 +87,6 @@ export function initScene(canvasContainer) {
     scene.add(pointLight);
 
     // 7. Ground / Scale Environment
-    // Grid Helper
-    const gridHelper = new THREE.GridHelper(30, 30, 0x7b61ff, 0x181828);
-    gridHelper.position.y = 0;
-    scene.add(gridHelper);
 
     // Shadow receiving ground plane
     const floorGeo = new THREE.PlaneGeometry(100, 100);
@@ -103,6 +99,10 @@ export function initScene(canvasContainer) {
 
     // 8. Resize handler
     window.addEventListener('resize', onWindowResize);
+    
+    // 9. Initial theme set
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
+    updateSceneTheme(savedTheme);
 }
 
 // Window resizing
@@ -111,4 +111,47 @@ export function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Dynamic Theme Swapping for Three.js Viewport
+export function updateSceneTheme(themeName) {
+    if (!scene || !renderer) return;
+    
+    const isDark = themeName === 'dark';
+    
+    // Light: slate gray bg, black grid lines
+    // Dark: deep dark purple, neon violet grid
+    const bgColor = isDark ? 0x080810 : 0xf1f5f9;
+    const gridColor1 = isDark ? 0x7b61ff : 0x000000;
+    const gridColor2 = isDark ? 0x181828 : 0xcbced4;
+    const pointLightColor = isDark ? 0x7b61ff : 0x000000;
+    
+    scene.background = new THREE.Color(bgColor);
+    if (scene.fog) {
+        scene.fog.color.setHex(bgColor);
+    }
+    
+    // Find and replace grid helper dynamically
+    const toRemove = [];
+    scene.traverse((child) => {
+        if (child instanceof THREE.GridHelper) {
+            toRemove.push(child);
+        }
+    });
+    toRemove.forEach(grid => scene.remove(grid));
+    
+    const gridHelper = new THREE.GridHelper(30, 30, gridColor1, gridColor2);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+    
+    // Traverse and update hemispherical/point lights
+    scene.traverse((child) => {
+        if (child instanceof THREE.PointLight) {
+            child.color.setHex(pointLightColor);
+            child.intensity = isDark ? 6.0 : 2.5;
+        }
+        if (child instanceof THREE.HemisphereLight) {
+            child.groundColor.setHex(isDark ? 0x080810 : 0xcbced4);
+        }
+    });
 }

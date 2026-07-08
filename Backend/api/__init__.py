@@ -1,6 +1,12 @@
 from fastapi import APIRouter
 from api.routes.mesh import router as mesh_router
+from api.routes.catalog import router as catalog_router
+from api.routes.recommend import router as recommend_router
+from api.routes.photo import router as photo_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(mesh_router)
+api_router.include_router(catalog_router)
+api_router.include_router(recommend_router)
+api_router.include_router(photo_router)
 
