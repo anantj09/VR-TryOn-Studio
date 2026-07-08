@@ -5,14 +5,27 @@ import numpy as np
 from PIL import Image
 
 # Add CatVTON path dynamically to load model components
-# The server is located at /home/bisagn/projectgsv/3dhuman/server/
-# and CatVTON is cloned at /home/bisagn/projectgsv/3dhuman/models/CatVTON/
-models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models"))
-catvton_dir = os.environ.get("CATVTON_ROOT") or os.path.join(models_dir, "CatVTON")
-if os.path.exists(catvton_dir):
+current_dir = os.path.dirname(os.path.abspath(__file__))
+catvton_candidates = [
+    os.environ.get("CATVTON_ROOT"),
+    os.path.abspath(os.path.join(current_dir, "..", "models", "CatVTON")),
+    os.path.abspath(os.path.join(current_dir, "models", "CatVTON")),
+    "/app/models/CatVTON"
+]
+
+catvton_dir = None
+for candidate in catvton_candidates:
+    if candidate and os.path.exists(candidate):
+        catvton_dir = candidate
+        break
+
+if catvton_dir:
+    print(f"[CATVTON] Loading module from: {catvton_dir}")
     sys.path.insert(0, catvton_dir)
 else:
-    sys.path.insert(0, "/home/bisagn/projectgsv/3dhuman/models/CatVTON")
+    raise FileNotFoundError(
+        "CatVTON repository directory not found. Please clone it to 'models/CatVTON' or define 'CATVTON_ROOT' environment variable."
+    )
 
 from model.pipeline import CatVTONPipeline
 from model.cloth_masker import AutoMasker

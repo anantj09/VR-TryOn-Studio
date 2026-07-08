@@ -29,6 +29,8 @@ dill
 omegaconf
 hydra-core
 rich
+webdataset
+av
 
 # Direct Git Repositories (installable via pip)
 git+https://github.com/mattloper/chumpy.git
