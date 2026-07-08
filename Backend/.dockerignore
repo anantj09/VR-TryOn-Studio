@@ -1,0 +1,9 @@
+.venv/
+temp/
+temp_uploads/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/

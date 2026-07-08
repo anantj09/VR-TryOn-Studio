@@ -1,0 +1,39 @@
+services:
+  frontend-web:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    container_name: vr-frontend
+    restart: always
+
+  backend-api:
+    build:
+      context: ./Backend
+    ports:
+      - "8000:8000"
+    container_name: vr-backend
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TEMP_DIR_PATH=/app/temp
+    restart: always
+    depends_on:
+      - frontend-web
+
+  gpu-compute:
+    build:
+      context: ./gpu-server
+    ports:
+      - "8001:8000"
+    container_name: vr-gpu-server
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: always

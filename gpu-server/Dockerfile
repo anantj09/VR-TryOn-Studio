@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set python3.10 as default python/python3
-RUN update-alternatives --install /usr/bin/python /usr/bin/python3.10 1 && \
-    update-alternatives --install /usr/bin/python3 /usr/bin/python3.10 1
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
 WORKDIR /app
 
@@ -29,6 +29,9 @@ COPY requirements.txt .
 
 # Install dependencies (use --no-build-isolation to allow compilation of basicsr and detectron2)
 RUN pip3 install --no-cache-dir -r requirements.txt --no-build-isolation
+
+# Clone CatVTON repository so it is fully self-contained inside the container
+RUN git clone https://github.com/Zheng-Chong/CatVTON.git /app/models/CatVTON
 
 COPY . .
 
