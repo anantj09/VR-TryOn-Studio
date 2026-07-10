@@ -90,7 +90,14 @@ sequenceDiagram
 
 ---
 
-## 2. Directory Layout & Module Maps
+## 2. Developer Case Study & Blog
+
+For an in-depth writeup of the project background, microservices architecture, and technical challenges (such as GPU memory optimizations, WebGL point-cloud shader fixes, and the native mobile-to-WebXR pivot), check out our case study on Hashnode:
+👉 [Virtual Reality Based Clothing TryOns: Building a WebXR Fitting Room with 3D Avatars and Generative AI](https://vr-clothing-tryons.hashnode.dev/virtual-reality-based-clothing-tryons-building-a-webxr-fitting-room-with-3d-avatars-and-generative-ai)
+
+---
+
+## 3. Directory Layout & Module Maps
 
 The codebase is organized into a modular, container-ready microservices layout:
 
@@ -123,8 +130,7 @@ internship_week3/
 │   ├── api/routes/
 │   │   ├── catalog.py            # Serves processed clothing items lists
 │   │   ├── mesh.py               # Re-routes 3D twin / try-on requests to GPU Server
-│   │   ├── photo.py              # Handles image validation & landmark extraction
-│   │   └── recommend.py          # Size recommenders matching catalog to user pose
+│   │   └── photo.py              # Handles image validation & landmark extraction
 │   ├── core/
 │   │   ├── config.py             # Loads environment variables from .env
 │   │   └── database.py           # In-memory mock database for active user profiles
@@ -156,7 +162,7 @@ internship_week3/
 
 ---
 
-## 3. Pre-Trained Weights & Model Cache Setup
+## 4. Pre-Trained Weights & Model Cache Setup
 
 The 3D mesh reconstruction module (4D-Humans) requires neutral body template weights (SMPL model) which cannot be distributed directly in the repository due to licensing restrictions. These weights must be manually downloaded and placed in the system's cache folder before running the GPU server.
 
@@ -182,7 +188,7 @@ The 3D mesh reconstruction module (4D-Humans) requires neutral body template wei
 
 ---
 
-## 4. Dataset Management & Preprocessing
+## 5. Dataset Management & Preprocessing
 
 The raw datasets are tracked using DVC (Data Version Control) to keep the Git repository lightweight.
 
@@ -211,7 +217,7 @@ data/dataset_processed/ is not checked in to Git. To generate the cropped, trans
 
 ---
 
-## 5. Repository Dependencies Setup (CatVTON & LHM++)
+## 6. Repository Dependencies Setup (CatVTON & LHM++)
 
 The GPU server relies on external modules from CatVTON (Virtual Try-on) and LHM++ (Large Human Model). These repositories must be cloned into the shared models directory in the project root:
 
@@ -230,7 +236,7 @@ git clone https://github.com/Damo-XR-Lab/LHM-plusplus.git
 
 ---
 
-## 6. Setup Options & Step-by-Step Setup Guides
+## 7. Setup Options & Step-by-Step Setup Guides
 
 Users can configure and deploy the system via three primary routes depending on their hardware availability.
 
@@ -241,7 +247,7 @@ Users can configure and deploy the system via three primary routes depending on 
 This route runs the Frontend, CPU Backend gateway, and GPU Compute Server on the same local GPU-enabled PC.
 
 #### Option A: Running natively via Python Virtual Environments
-1. **Prepare SMPL Templates:** Ensure the MPI neutral body file basicModel_neutral_lbs_10_207_0_v1.0.0.pkl is saved as SMPL_NEUTRAL.pkl in the user's home folder under ~/.cache/4DHumans/data/smpl/ (see Section 3).
+1. **Prepare SMPL Templates:** Ensure the MPI neutral body file basicModel_neutral_lbs_10_207_0_v1.0.0.pkl is saved as SMPL_NEUTRAL.pkl in the user's home folder under ~/.cache/4DHumans/data/smpl/ (see Section 4).
 2. **Install Environments & Dependencies:** Run the master setup script from the project root:
    ```powershell
    python setup_project.py
@@ -421,7 +427,7 @@ This route is suitable when a local NVIDIA GPU is unavailable, allowing the heav
 
 ---
 
-## 7. Credits & License
+## 8. Credits & License
 
 ### Contributors
 This project was developed during a summer internship at **BISAG-N** (Bhaskaracharya National Institute for Space Applications and Geo-informatics) by:
@@ -434,5 +440,5 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
-## 8. Troubleshooting & Issue Tracking
+## 9. Troubleshooting & Issue Tracking
 If any issues, bugs, or runtime problems occur during setup or execution, users are encouraged to open an issue directly in the repository's issue tracker, or submit a Pull Request with bug fixes, enhancements, or documentation updates.
