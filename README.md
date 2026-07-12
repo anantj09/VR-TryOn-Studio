@@ -7,11 +7,56 @@
 [![CUDA](https://img.shields.io/badge/CUDA-11.8%20%2F%2012.1-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![DVC](https://img.shields.io/badge/DVC-Tracked-orange.svg)](https://dvc.org/)
 
-An immersive, hardware-accelerated WebXR virtual dressing room and digital twin application. The project is split into a lightweight **CPU API Gateway (Backend)**, a responsive **Static Client (Frontend)**, and a high-performance **GPU Inference Server** (supporting CatVTON try-on, AI Super-Resolution, and 4D-Humans 3D avatar reconstruction).
+An immersive, hardware-accelerated WebXR virtual dressing room and digital twin application. The project is split into a lightweight **CPU API Gateway (Backend)**, a responsive **Static Client (Frontend)**, and a high-performance **GPU Inference Server** supporting virtual try-on (CatVTON), AI Super-Resolution (Real-ESRGAN/GFPGAN), and 3D avatar reconstruction (4D-Humans SMPL meshes & LHM++ Gaussian Splats).
+
+Throughout development, we evaluated and benchmarked several state-of-the-art reconstruction and try-on models (including Trellis 2.0, Hunyuan3D, Pixal3D, InstantMesh, and Meshy AI) to design a dual-mode virtual showroom optimized for mobile WebXR viewports and real-time spectator mirroring.
 
 ---
 
-## 1. System Architecture & Flows
+## 1. Project Overview & Core Features
+
+The primary objective of this project is to address the high rate of product returns in fashion e-commerce by providing shoppers with a personalized 3D digital twin and quantitative body measurements directly in their browser.
+
+### Key Capabilities:
+* **2D Virtual Try-On:** Wraps and transfers garment images onto shopper portraits using the **CatVTON** model, upscaled and enhanced via **Real-ESRGAN** and **GFPGAN**.
+* **Dual-Engine 3D Reconstruction:**
+  * **Option A (Polygonal Mesh):** Generates rigged 3D human models using **4D-Humans (HMR 2.0)**, regressed to the parametric **SMPL model** template.
+  * **Option B (Point Cloud):** Produces detailed 3D human splats using the **LHM++** transformer architecture.
+* **Quantitative Body Sizing:** Computes shopper measurements (height, chest, waist, and hip circumference) using **MediaPipe** pose landmarks and mesh vertex distances.
+* **Immersive WebXR Viewport:** Renders the 3D digital twin inside a Three.js WebGL scene, supporting desktop orbit controls, stereoscopic VR (Google Cardboard/Quest), Bluetooth gamepad navigation, and accelerometer-based **Walking-in-Place (WIP)** locomotion.
+* **WebSocket Spectator Mirroring:** Broadcasts camera coordinates and avatar transforms from the primary VR headset to a remote spectator screen in real-time, allowing mirroring and qualitative styling consulting.
+
+---
+
+## 2. Technology Stack Mapping
+
+The platform is designed around a decoupled, microservices-oriented architecture:
+
+| System Layer | Component / Tech | Version / Library | Architectural Role |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | Three.js | r128 | WebGL rendering engine for 3D meshes & point clouds |
+| | WebXR Device API | Browser Native | Accesses mobile accelerometer/gyroscope sensors & VR |
+| | HTML5 / Vanilla CSS | — | Cyberpunk theme UI, viewport overlays, and mobile HUDs |
+| | WebSocket Client | Browser Native | Telemetry transmission for spectator mirroring |
+| **CPU Gateway** | Python | 3.10 | Backend runtime language |
+| | FastAPI | 0.139.0 | REST endpoints & WebSocket state connection manager |
+| | MediaPipe | 0.10.8 | CPU-bound pose landmarks detection & sizing calculations |
+| | OpenCV | 4.8.1 | Image processing and silhouette mask generation |
+| **GPU Inference** | PyTorch | 2.1.0 + CUDA | Deep learning framework runtime |
+| | FastAPI | 0.139.0 | GPU endpoint management & VRAM unloading triggers |
+| | CatVTON | Zheng-Chong | Inpainting diffusion-based virtual try-on model |
+| | 4D-Humans | HMR 2.0 (SMPL) | Monocular 3D human mesh recovery model |
+| | LHM++ | Damo-XR-Lab | 3D human point-cloud reconstruction transformer |
+| | Real-ESRGAN | 0.3.0 | AI image upscaling and super-resolution |
+| | GFPGAN | 1.3.8 | Generative facial prior network for face restoration |
+| **DevOps & Data** | Docker | Enabled | Standardized containerization for services |
+| | Docker Compose | 3.8 | Multi-container orchestration (web, backend, GPU) |
+| | DVC | 3.38.1 | Data Version Control for 3D assets & datasets |
+| | Ngrok | — | Secure tunnel ingress for remote GPU instances |
+
+---
+
+## 3. System Architecture & Flows
 
 ### A. Dual-Mode Operations Flow
 This diagram details the flow of user operations between the Digital Twin Creator and the Showcase Catalog:
@@ -27,7 +72,7 @@ graph TD
         Sizing --> Router{GPU Server URL Set?}
         Router -->|Yes| GPUServer[Remote GPU Server]
         Router -->|No| ErrorState[503 Service Unavailable]
-        GPUServer -->|Textured GLB Mesh| RenderTwin[Renders Avatar @ 1.8m Height]
+        GPUServer -->|Textured GLB Mesh / Splat| RenderTwin[Renders Avatar in Viewer]
     end
 
     subgraph ShowcaseMode [Showcase Mode]
@@ -57,47 +102,41 @@ graph TD
 This diagram outlines the port configurations and network routing between the frontend client, the CPU gateway host, and the GPU compute server:
 
 ```mermaid
-graph LR
-    subgraph ClientPC [Client Machine e.g. Laptop]
-        Browser[Static Frontend Client] -->|Port 8080| WebServer[Nginx / Local Web Server]
-        Browser -->|WebSocket WS/WSS| CPUBackend[FastAPI CPU Gateway - Port 8000]
+graph TD
+    subgraph ClientPC [Client Machine / Web Browser]
+        Browser[Static Frontend Client] -->|Port 8080| WebServer[Nginx Web Server]
+        Browser -->|WebSocket ws://| CPUBackend[FastAPI CPU Gateway - Port 8000]
     end
 
-    subgraph ServerPC [Compute Machine e.g. Local GPU PC or Colab]
-        CPUBackend -->|REST API Requests| GPUServer[FastAPI GPU Server - Port 8001 / 8000]
+    subgraph ServerPC [Compute Machine / Workstation]
+        CPUBackend -->|HTTP Proxy / REST| GPUServer[FastAPI GPU Server - Port 8001]
         GPUServer -->|CUDA Acceleration| GPU[NVIDIA GPU VRAM]
     end
 ```
 
-### C. Twin Mesh Generation & Try-On Pipeline
+### C. Try-On & 3D Reconstruction Pipeline
 This diagram traces the sequence of operations from the initial image upload to the final 3D asset rendering:
 
 ```mermaid
 sequenceDiagram
-    participant User as Frontend Client
+    autonumber
+    actor User as Frontend Client
     participant CPU as CPU Gateway (8000)
     participant GPU as GPU Server (8001)
 
-    User->>CPU: Upload Portrait & Pose Data
-    CPU->>CPU: Segment Silhouette & Extract Landmarks
-    CPU->>GPU: Forward segmented image & size profile
-    GPU->>GPU: Run 4D-Humans (HMR2) Mesh Reconstruction
-    GPU->>GPU: Run CatVTON Try-On Model
-    GPU->>GPU: Apply Super-Resolution & Face Restoration
-    GPU->>CPU: Return Textured 3D Mesh (GLB) & try-on outputs
-    CPU->>User: Serve assets & stream updates via WebSocket
+    User->>CPU: Upload Photo & Select Garment
+    CPU->>CPU: Segment Silhouette & Extract Pose Landmarks (MediaPipe)
+    CPU->>GPU: Forward segmented image & mask (httpx proxy)
+    GPU->>GPU: Run CatVTON Try-On & Super-Resolution (Real-ESRGAN/GFPGAN)
+    GPU->>GPU: Run 3D Reconstruction (HMR 2.0 Mesh or LHM++ Splat)
+    GPU-->>CPU: Return Reconstructed GLB Mesh / PLY Splat File
+    CPU->>CPU: Estimate Sizing Profile (Height, Chest, Waist, Hip)
+    CPU-->>User: Serve 3D Asset & stream telemetry updates
 ```
 
 ---
 
-## 2. Developer Case Study & Blog
-
-For an in-depth writeup of the project background, microservices architecture, and technical challenges (such as GPU memory optimizations, WebGL point-cloud shader fixes, and the native mobile-to-WebXR pivot), check out our case study on Hashnode:
-👉 [Virtual Reality Based Clothing TryOns: Building a WebXR Fitting Room with 3D Avatars and Generative AI](https://vr-clothing-tryons.hashnode.dev/virtual-reality-based-clothing-tryons-building-a-webxr-fitting-room-with-3d-avatars-and-generative-ai)
-
----
-
-## 3. Directory Layout & Module Maps
+## 4. Directory Layout & Module Maps
 
 The codebase is organized into a modular, container-ready microservices layout:
 
@@ -162,7 +201,7 @@ internship_week3/
 
 ---
 
-## 4. Pre-Trained Weights & Model Cache Setup
+## 5. Pre-Trained Weights & Model Cache Setup
 
 The 3D mesh reconstruction module (4D-Humans) requires neutral body template weights (SMPL model) which cannot be distributed directly in the repository due to licensing restrictions. These weights must be manually downloaded and placed in the system's cache folder before running the GPU server.
 
@@ -188,7 +227,7 @@ The 3D mesh reconstruction module (4D-Humans) requires neutral body template wei
 
 ---
 
-## 5. Dataset Management & Preprocessing
+## 6. Dataset Management & Preprocessing
 
 The raw datasets are tracked using DVC (Data Version Control) to keep the Git repository lightweight.
 
@@ -217,7 +256,7 @@ data/dataset_processed/ is not checked in to Git. To generate the cropped, trans
 
 ---
 
-## 6. Repository Dependencies Setup (CatVTON & LHM++)
+## 7. Repository Dependencies Setup (CatVTON & LHM++)
 
 The GPU server relies on external modules from CatVTON (Virtual Try-on) and LHM++ (Large Human Model). These repositories must be cloned into the shared models directory in the project root:
 
@@ -236,7 +275,7 @@ git clone https://github.com/Damo-XR-Lab/LHM-plusplus.git
 
 ---
 
-## 7. Setup Options & Step-by-Step Setup Guides
+## 8. Setup Options & Step-by-Step Setup Guides
 
 Users can configure and deploy the system via three primary routes depending on their hardware availability.
 
@@ -247,7 +286,7 @@ Users can configure and deploy the system via three primary routes depending on 
 This route runs the Frontend, CPU Backend gateway, and GPU Compute Server on the same local GPU-enabled PC.
 
 #### Option A: Running natively via Python Virtual Environments
-1. **Prepare SMPL Templates:** Ensure the MPI neutral body file basicModel_neutral_lbs_10_207_0_v1.0.0.pkl is saved as SMPL_NEUTRAL.pkl in the user's home folder under ~/.cache/4DHumans/data/smpl/ (see Section 4).
+1. **Prepare SMPL Templates:** Ensure the MPI neutral body file basicModel_neutral_lbs_10_207_0_v1.0.0.pkl is saved as SMPL_NEUTRAL.pkl in the user's home folder under ~/.cache/4DHumans/data/smpl/ (see Section 5).
 2. **Install Environments & Dependencies:** Run the master setup script from the project root:
    ```powershell
    python setup_project.py
@@ -427,7 +466,7 @@ This route is suitable when a local NVIDIA GPU is unavailable, allowing the heav
 
 ---
 
-## 8. Credits & License
+## 9. Credits & License
 
 ### Contributors
 This project was developed during a summer internship at **BISAG-N** (Bhaskaracharya National Institute for Space Applications and Geo-informatics) by:
@@ -440,5 +479,5 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
-## 9. Troubleshooting & Issue Tracking
+## 10. Troubleshooting & Issue Tracking
 If any issues, bugs, or runtime problems occur during setup or execution, users are encouraged to open an issue directly in the repository's issue tracker, or submit a Pull Request with bug fixes, enhancements, or documentation updates.
