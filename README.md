@@ -141,7 +141,7 @@ sequenceDiagram
 The codebase is organized into a modular, container-ready microservices layout:
 
 ```bash
-internship_week3/
+VRBased_Clothing_TryOns/
 │
 ├── frontend/                     # Client Web Application
 │   ├── Dockerfile                # Nginx docker image configuration
